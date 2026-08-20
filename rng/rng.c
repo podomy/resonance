@@ -1,9 +1,17 @@
 #include "rng.h"
 
+/** Xoshiro256** 1.0, splitmix64 seeder. 
+ *  This implementation is frozen. Changing values will
+ *  break replay. They were carefully picked and should
+ *  not be changed. All simulation of randomness must go
+ *  through rng_u64 after rng_seed.
+ * */
+
 /** Rotates x left by k bits. */
 static uint64_t rotl(const uint64_t x, int k) {
-    return (x << k) | (x >> (64 - k));
+  return (x << k) | (x >> (64 - k));
 }
+
 
 /** Advances a splitmix64 state and returns the output. */
 static uint64_t splitmix64_next(uint64_t* x) {

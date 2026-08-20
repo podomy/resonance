@@ -1,7 +1,7 @@
 #include "../shared/context.h"
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 #define TRACE_LEN 3
@@ -57,21 +57,13 @@ int main(void) {
     rng_seed(&a, SEED);
     rng_seed(&b, SEED);
     for (size_t i = 0; i < RNG_DRAWS; i++) {
-        if (rng_u64(&a) != rng_u64(&b)) {
-            fprintf(stderr, "rng mismatch at %zu\n", i);
-            return 1;
-        }
+        assert(rng_u64(&a) == rng_u64(&b));
     }
 
     TraceEvent first[TRACE_LEN];
     TraceEvent second[TRACE_LEN];
-    if (!run_trace(first) || !run_trace(second)) {
-        fprintf(stderr, "trace run failed\n");
-        return 1;
-    }
-    if (memcmp(first, second, sizeof(first)) != 0) {
-        fprintf(stderr, "event trace mismatch\n");
-        return 1;
-    }
+    assert(run_trace(first));
+    assert(run_trace(second));
+    assert(memcmp(first, second, sizeof(first)) == 0);
     return 0;
 }

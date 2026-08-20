@@ -1,53 +1,32 @@
 #include "../heap/heap.h"
-#include <stdio.h>
+#include <assert.h>
+#include <stdint.h>
 
-/** No-op callback for heap ordering tests. */
-static void nop(Context* ctx, Timestamp ts, uint64_t seq) {
-    (void)ctx;
-    (void)ts;
-    (void)seq;
-}
-
-/** Fills event fields used by the heap comparator. */
-static Event make_event(uint64_t t, uint64_t seq) {
-    Event event;
-    event.executed_at.nanoseconds = t;
-    event.callback_func = nop;
-    event.sequence_number = seq;
-    return event;
+/** Event with only heap-order fields set. */
+static Event ev(uint64_t t, uint64_t seq) {
+    return (Event){.executed_at.nanoseconds = t,
+                   .sequence_number = seq};
 }
 
 int main(void) {
     MinHeap* h = heap_create(1);
-    if (h == NULL) {
-        return 1;
-    }
-    if (!heap_push(h, make_event(10, 2)) ||
-        !heap_push(h, make_event(5, 100)) ||
-        !heap_push(h, make_event(10, 1))) {
-        heap_free(h);
-        return 1;
-    }
+    assert(h != NULL);
+    assert(heap_push(h, ev(10, 2)));
+    assert(heap_push(h, ev(5, 100)));
+    assert(heap_push(h, ev(10, 1)));
 
+    const uint64_t want[][2] = {
+        {5, 100},
+        {10, 1},
+        {10, 2},
+    };
     Event out;
-    const uint64_t expect_t[] = {5, 10, 10};
-    const uint64_t expect_s[] = {100, 1, 2};
     for (int i = 0; i < 3; i++) {
-        if (!heap_pop(h, &out)) {
-            heap_free(h);
-            return 1;
-        }
-        if (out.executed_at.nanoseconds != expect_t[i] ||
-            out.sequence_number != expect_s[i]) {
-            fprintf(stderr, "order mismatch at %d\n", i);
-            heap_free(h);
-            return 1;
-        }
+        assert(heap_pop(h, &out));
+        assert(out.executed_at.nanoseconds == want[i][0]);
+        assert(out.sequence_number == want[i][1]);
     }
-    if (heap_pop(h, &out)) {
-        heap_free(h);
-        return 1;
-    }
+    assert(!heap_pop(h, &out));
     heap_free(h);
     return 0;
 }
