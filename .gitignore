@@ -1,1 +1,5 @@
 .zed/
+resonance
+check/heap_test
+check/determinism
+*.o

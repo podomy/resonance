@@ -1,76 +1,99 @@
-#include "../shared/events.h"
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
+#include "heap.h"
 #include <stdlib.h>
 
-typedef struct {
-    Event* data;
-    size_t size;
-    size_t capacity;
-} MinHeap;
-
-void swap(Event* a, Event* b) {
+/** Swaps two events. */
+static void swap(Event* a, Event* b) {
     Event temp = *a;
     *a = *b;
     *b = temp;
 }
 
-// Create the heap.
+/** Returns true if a precedes b by (time, sequence). */
+static bool event_before(const Event* a, const Event* b) {
+    if (a->executed_at.nanoseconds !=
+        b->executed_at.nanoseconds) {
+        return a->executed_at.nanoseconds <
+               b->executed_at.nanoseconds;
+    }
+    return a->sequence_number < b->sequence_number;
+}
+
+/** Allocates a min-heap. Returns NULL on allocation
+ * failure. */
 MinHeap* heap_create(size_t capacity) {
-    MinHeap* h = malloc(sizeof(MinHeap));
-    h->data = malloc(capacity * sizeof(*h->data));
+    MinHeap* h = malloc(sizeof(*h));
+    if (h == NULL) {
+        return NULL;
+    }
+    h->data = NULL;
+    if (capacity > 0) {
+        h->data = malloc(capacity * sizeof(*h->data));
+        if (h->data == NULL) {
+            free(h);
+            return NULL;
+        }
+    }
     h->size = 0;
     h->capacity = capacity;
     return h;
 }
 
-// Cleanup.
+/** Releases heap storage. Safe on NULL. */
 void heap_free(MinHeap* h) {
+    if (h == NULL) {
+        return;
+    }
     free(h->data);
     free(h);
 }
 
-// Push and bubble up.
-void heap_push(MinHeap* h, Event value) {
-    // Resize array if full.
-    if (h->size >= h->capacity) {
-        // If the capacity is 0, we need to set it to 1,
-        // because the multiplication below would not work.
-        if (h->capacity == 0) {
-            h->capacity = 1;
-        }
-
-        h->capacity *= 2;
-        h->data = realloc(h->data,
-                          h->capacity * sizeof(*h->data));
+/** Inserts value. Returns false on allocation failure. */
+bool heap_push(MinHeap* h, Event value) {
+    if (h == NULL) {
+        return false;
     }
 
-    // Place the value at the end.
+    if (h->size >= h->capacity) {
+        size_t new_capacity;
+        if (h->capacity == 0) {
+            new_capacity = 1;
+        } else if (h->capacity > ((size_t)-1) / 2) {
+            return false;
+        } else {
+            new_capacity = h->capacity * 2;
+        }
+        if (new_capacity >
+            ((size_t)-1) / sizeof(*h->data)) {
+            return false;
+        }
+        Event* grown = realloc(
+            h->data, new_capacity * sizeof(*h->data));
+        if (grown == NULL) {
+            return false;
+        }
+        h->data = grown;
+        h->capacity = new_capacity;
+    }
+
     size_t index = h->size;
     h->data[index] = value;
     h->size++;
 
-    // Bubble up to maintain min-heap property.
     while (index > 0) {
         size_t parent = (index - 1) / 2;
-        // Comparing the size of the events based on
-        // timestamps and sequence numbers.
-        if (h->data[index].executed_at.nanoseconds <
-                h->data[parent].executed_at.nanoseconds &&
-            h->data[index].sequence_number <
-                h->data[parent].sequence_number) {
-            swap(&h->data[index], &h->data[parent]);
-            index = parent;
-        } else {
+        if (!event_before(&h->data[index],
+                          &h->data[parent])) {
             break;
         }
+        swap(&h->data[index], &h->data[parent]);
+        index = parent;
     }
+    return true;
 }
 
-// Pop an element.
+/** Removes the next event. Returns false if empty. */
 bool heap_pop(MinHeap* h, Event* out) {
-    if (h->size == 0) {
+    if (h == NULL || out == NULL || h->size == 0) {
         return false;
     }
 
@@ -86,35 +109,21 @@ bool heap_pop(MinHeap* h, Event* out) {
             size_t right = 2 * index + 2;
             size_t smallest = index;
 
-            // Find the smallest among parent and children.
-            // Comparing the size of the events based on
-            // timestamp and the seq number
             if (left < h->size &&
-                h->data[left].executed_at.nanoseconds <
-                    h->data[smallest]
-                        .executed_at.nanoseconds &&
-                h->data[left].sequence_number <
-                    h->data[smallest].sequence_number) {
+                event_before(&h->data[left],
+                             &h->data[smallest])) {
                 smallest = left;
             }
-            // Comparing the size of the events based on
-            // timestamp and the seq number
             if (right < h->size &&
-                h->data[right].executed_at.nanoseconds <
-                    h->data[smallest]
-                        .executed_at.nanoseconds &&
-                h->data[right].sequence_number <
-                    h->data[smallest].sequence_number) {
+                event_before(&h->data[right],
+                             &h->data[smallest])) {
                 smallest = right;
             }
 
-            // If root is smaller than both children, we are
-            // done.
             if (smallest == index) {
                 break;
             }
 
-            // Otherwise swap and keep going down.
             swap(&h->data[index], &h->data[smallest]);
             index = smallest;
         }

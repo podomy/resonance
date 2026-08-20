@@ -7,12 +7,16 @@ typedef struct {
     uint64_t nanoseconds;
 } Timestamp;
 
+typedef struct Context Context;
+
+typedef void (*EventCallback)(Context* ctx,
+                              Timestamp timestamp,
+                              uint64_t seq);
+
 typedef struct {
     Timestamp executed_at;
-    void (*callback_func)();
+    EventCallback callback_func;
     uint64_t sequence_number;
 } Event;
-
-typedef void (*callback_func)(Event, Timestamp, uint64_t);
 
 #endif

@@ -11,18 +11,17 @@ typedef struct {
     size_t capacity;
 } MinHeap;
 
-void swap(Event* a, Event* b);
-
-// Create the heap.
+/** Allocates a min-heap. Returns NULL on allocation
+ * failure. */
 MinHeap* heap_create(size_t capacity);
 
-// Cleanup.
+/** Releases heap storage. Safe on NULL. */
 void heap_free(MinHeap* h);
 
-// Push and bubble up.
-void heap_push(MinHeap* h, Event value);
+/** Inserts value. Returns false on allocation failure. */
+bool heap_push(MinHeap* h, Event value);
 
-// Pop an element.
+/** Removes the next event. Returns false if empty. */
 bool heap_pop(MinHeap* h, Event* out);
 
 #endif
