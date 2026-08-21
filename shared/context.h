@@ -32,6 +32,9 @@ bool context_add_node(Context* ctx, int64_t x_nm,
 // Returns the node with id, or NULL.
 Node* context_find_node(Context* ctx, uint64_t id);
 
+// Swap-remove the node with this id.
+bool context_remove_node(Context* ctx, uint64_t id);
+
 // Queues cb at t. Rejects t earlier than the clock.
 bool context_schedule(Context* ctx, uint64_t nanoseconds,
                       EventCallback cb, uint64_t payload);

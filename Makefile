@@ -16,9 +16,14 @@ check/determinism: check/determinism.c heap/heap.c rng/rng.c \
 		shared/context.c node/node.c
 	$(CC) $(CFLAGS) -o $@ $^
 
-clean:
-	rm -f resonance check/heap_test check/determinism
+check/node_test: check/node_test.c node/node.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-check: check/heap_test check/determinism
+clean:
+	rm -f resonance check/heap_test check/determinism \
+		check/node_test
+
+check: check/heap_test check/determinism check/node_test
 	./check/heap_test
 	./check/determinism
+	./check/node_test

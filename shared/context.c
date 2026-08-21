@@ -12,6 +12,8 @@ bool context_init(Context* ctx, size_t heap_capacity,
     ctx->nodes.data = NULL;
     ctx->nodes.len = 0;
     ctx->nodes.cap = 0;
+    ctx->nodes.by_id.data = NULL;
+    ctx->nodes.by_id.cap = 0;
     ctx->heap = heap_create(heap_capacity);
     if (ctx->heap == NULL) {
         return false;
@@ -60,12 +62,15 @@ Node* context_find_node(Context* ctx, uint64_t id) {
     if (ctx == NULL) {
         return NULL;
     }
-    for (size_t i = 0; i < ctx->nodes.len; i++) {
-        if (ctx->nodes.data[i].id == id) {
-            return &ctx->nodes.data[i];
-        }
+    return nodelist_find(&ctx->nodes, id);
+}
+
+// Swap-remove the node with this id.
+bool context_remove_node(Context* ctx, uint64_t id) {
+    if (ctx == NULL) {
+        return false;
     }
-    return NULL;
+    return nodelist_remove_by_id(&ctx->nodes, id);
 }
 
 // Queues cb at t. Rejects t earlier than the clock.
