@@ -1,0 +1,32 @@
+[
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c main.c",
+    "file": "main.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c heap/heap.c",
+    "file": "heap/heap.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c rng/rng.c",
+    "file": "rng/rng.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c shared/context.c",
+    "file": "shared/context.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c check/heap_test.c",
+    "file": "check/heap_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c check/determinism.c",
+    "file": "check/determinism.c"
+  }
+]

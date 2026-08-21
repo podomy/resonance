@@ -18,9 +18,10 @@ static TraceEvent* trace_out;
 static size_t trace_n;
 static size_t trace_cap;
 
-/** Records time, sequence, and one RNG draw. */
+// Records time, sequence, and one RNG draw.
 static void record(Context* ctx, Timestamp timestamp,
-                   uint64_t seq) {
+                   uint64_t seq, uint64_t payload) {
+    (void)payload;
     if (trace_n >= trace_cap) {
         return;
     }
@@ -30,7 +31,7 @@ static void record(Context* ctx, Timestamp timestamp,
     trace_n++;
 }
 
-/** Fills dest with TRACE_LEN events from a seeded run. */
+// Fills dest with TRACE_LEN events from a seeded run.
 static bool run_trace(TraceEvent* dest) {
     Context ctx;
     if (!context_init(&ctx, 8, SEED)) {
@@ -39,9 +40,9 @@ static bool run_trace(TraceEvent* dest) {
     trace_out = dest;
     trace_n = 0;
     trace_cap = TRACE_LEN;
-    if (!context_schedule(&ctx, 10000, record) ||
-        !context_schedule(&ctx, 5000, record) ||
-        !context_schedule(&ctx, 10000, record)) {
+    if (!context_schedule(&ctx, 10000, record, 0) ||
+        !context_schedule(&ctx, 5000, record, 0) ||
+        !context_schedule(&ctx, 10000, record, 0)) {
         context_free(&ctx);
         return false;
     }
@@ -50,7 +51,7 @@ static bool run_trace(TraceEvent* dest) {
     return trace_n == TRACE_LEN;
 }
 
-/** Returns 0 if two same-seed runs match. */
+// Returns 0 if two same-seed runs match.
 int main(void) {
     Rng a;
     Rng b;

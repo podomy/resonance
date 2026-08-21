@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdint.h>
 
-/** Event with only heap-order fields set. */
+// Event with only heap-order fields set.
 static Event ev(uint64_t t, uint64_t seq) {
     return (Event){.executed_at.nanoseconds = t,
                    .sequence_number = seq};

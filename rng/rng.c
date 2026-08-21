@@ -7,13 +7,13 @@
  *  through rng_u64 after rng_seed.
  * */
 
-/** Rotates x left by k bits. */
+// Rotates x left by k bits.
 static uint64_t rotl(const uint64_t x, int k) {
   return (x << k) | (x >> (64 - k));
 }
 
 
-/** Advances a splitmix64 state and returns the output. */
+// Advances a splitmix64 state and returns the output.
 static uint64_t splitmix64_next(uint64_t* x) {
     uint64_t z = (*x += 0x9e3779b97f4a7c15ULL);
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -21,7 +21,7 @@ static uint64_t splitmix64_next(uint64_t* x) {
     return z ^ (z >> 31);
 }
 
-/** Seeds xoshiro256** via splitmix64. */
+// Seeds xoshiro256** via splitmix64.
 void rng_seed(Rng* rng, uint64_t seed) {
     uint64_t x = seed;
     rng->s[0] = splitmix64_next(&x);
@@ -34,7 +34,7 @@ void rng_seed(Rng* rng, uint64_t seed) {
     }
 }
 
-/** Returns the next 64-bit value. */
+// Returns the next 64-bit value.
 uint64_t rng_u64(Rng* rng) {
     const uint64_t result = rotl(rng->s[1] * 5, 7) * 9;
     const uint64_t t = rng->s[1] << 17;

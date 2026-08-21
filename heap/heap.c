@@ -1,14 +1,14 @@
 #include "heap.h"
 #include <stdlib.h>
 
-/** Swaps two events. */
+// Swaps two events.
 static void swap(Event* a, Event* b) {
     Event temp = *a;
     *a = *b;
     *b = temp;
 }
 
-/** Returns true if a precedes b by (time, sequence). */
+// Returns true if a precedes b by (time, sequence).
 static bool event_before(const Event* a, const Event* b) {
     if (a->executed_at.nanoseconds !=
         b->executed_at.nanoseconds) {
@@ -18,8 +18,7 @@ static bool event_before(const Event* a, const Event* b) {
     return a->sequence_number < b->sequence_number;
 }
 
-/** Allocates a min-heap. Returns NULL on allocation
- * failure. */
+// Allocates a min-heap. Returns NULL on allocation failure.
 MinHeap* heap_create(size_t capacity) {
     MinHeap* h = malloc(sizeof(*h));
     if (h == NULL) {
@@ -38,7 +37,7 @@ MinHeap* heap_create(size_t capacity) {
     return h;
 }
 
-/** Releases heap storage. Safe on NULL. */
+// Releases heap storage. Safe on NULL.
 void heap_free(MinHeap* h) {
     if (h == NULL) {
         return;
@@ -47,7 +46,7 @@ void heap_free(MinHeap* h) {
     free(h);
 }
 
-/** Inserts value. Returns false on allocation failure. */
+// Inserts value. Returns false on allocation failure.
 bool heap_push(MinHeap* h, Event value) {
     if (h == NULL) {
         return false;
@@ -91,7 +90,7 @@ bool heap_push(MinHeap* h, Event value) {
     return true;
 }
 
-/** Removes the next event. Returns false if empty. */
+// Removes the next event. Returns false if empty.
 bool heap_pop(MinHeap* h, Event* out) {
     if (h == NULL || out == NULL || h->size == 0) {
         return false;
