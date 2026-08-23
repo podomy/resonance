@@ -46,4 +46,11 @@ bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
 // Releases cell storage. False if grid is NULL.
 bool mediumgrid_free(MediumGrid* grid);
 
+// Fills rp. False if args are invalid or the path is
+// blocked.
+bool radio_path(const MediumGrid* grid,
+                const RadioParams* params, int64_t ax_nm,
+                int64_t ay_nm, int64_t bx_nm, int64_t by_nm,
+                RadioPath* rp);
+
 #endif
