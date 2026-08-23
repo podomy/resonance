@@ -47,20 +47,15 @@ bool mediumgrid_free(MediumGrid* grid) {
     return true;
 }
 
-// Floor integer square root.
-static uint64_t isqrt_u64(uint64_t n) {
-    uint64_t x = n;
-    uint64_t y;
-    if (n <= 1) {
-        return n;
-    }
-    y = (x + 1) / 2;
-    while (y < x) {
-        x = y;
-        y = (x + n / x) / 2;
-    }
-    return x;
-}
+/*
+ * Speed of the wave in each material (nm / ns).
+ * Zero means the cell blocks the ray.
+ */
+static const uint64_t k_c_nm_per_ns[MATERIAL_COUNT] = {
+    [MATERIAL_AIR] = 300, [MATERIAL_ROCK] = 0,
+    [MATERIAL_DIRT] = 0,  [MATERIAL_WATER] = 0,
+    [MATERIAL_WOOD] = 0,
+};
 
 // Writes unreachable into rp.
 static bool blocked(RadioPath* rp) {
@@ -79,20 +74,21 @@ static bool cell_of(const MediumGrid* grid, int64_t x_nm,
                     int64_t* iy) {
     uint64_t ux;
     uint64_t uy;
-    
-    // If the coordinate is not inside the map and any of the
-    // cells then we return false.
+
+    // If the coordinate is not inside the map and any of
+    // the cells then we return false.
     if (x_nm < grid->origin_x_nm ||
         y_nm < grid->origin_y_nm) {
         return false;
     }
 
-    // Distance from the origin that the point has in cell indices.
+    // Distance from the origin that the point has in cell
+    // indices.
     ux = (uint64_t)(x_nm - grid->origin_x_nm) /
          grid->cell_nm;
     uy = (uint64_t)(y_nm - grid->origin_y_nm) /
          grid->cell_nm;
-    
+
     // The mapped indices go out of the bounds of the map.
     // We return false, because it is out of range, too far.
     if (ux >= grid->nx || uy >= grid->ny) {
@@ -103,23 +99,34 @@ static bool cell_of(const MediumGrid* grid, int64_t x_nm,
     return true;
 }
 
-// False if any cell on the segment is not air.
-static bool segment_clear(const MediumGrid* grid,
+// Walks cells A to B. Adds cell_nm/c per cell. False if
+// blocked.
+static bool segment_delay(const MediumGrid* grid,
                           int64_t x0, int64_t y0,
-                          int64_t x1, int64_t y1) {
+                          int64_t x1, int64_t y1,
+                          uint64_t* delay_ns) {
     int64_t dx = x1 >= x0 ? x1 - x0 : x0 - x1;
     int64_t dy = y1 >= y0 ? y0 - y1 : y1 - y0;
     int64_t sx = x0 < x1 ? 1 : -1;
     int64_t sy = y0 < y1 ? 1 : -1;
     int64_t err = dx + dy;
-    
+    uint64_t delay = 0;
+
     while (true) {
         size_t i =
             (size_t)y0 * (size_t)grid->nx + (size_t)x0;
-        if (grid->cells[i] != MATERIAL_AIR) {
+        Material mat = grid->cells[i];
+        uint64_t c;
+        if (mat >= MATERIAL_COUNT) {
             return false;
         }
+        c = k_c_nm_per_ns[mat];
+        if (c == 0) {
+            return false;
+        }
+        delay += grid->cell_nm / c;
         if (x0 == x1 && y0 == y1) {
+            *delay_ns = delay;
             return true;
         }
         int64_t e2 = err * 2;
@@ -143,18 +150,16 @@ bool radio_path(const MediumGrid* grid,
     int64_t ax, ay, bx, by;
     __int128 dx, dy, d2, r2;
 
+    uint64_t delay_ns;
+
     if (grid == NULL || params == NULL || rp == NULL ||
-        grid->cells == NULL || grid->cell_nm == 0 ||
-        params->c_nm_per_ns == 0) {
+        grid->cells == NULL || grid->cell_nm == 0) {
         return blocked(rp);
     }
 
     dx = (__int128)bx_nm - ax_nm;
     dy = (__int128)by_nm - ay_nm;
-
-    // Squared distance.
     d2 = dx * dx + dy * dy;
-    // Squared range.
     r2 = (__int128)params->range_nm * params->range_nm;
     if (d2 > r2) {
         return blocked(rp);
@@ -162,14 +167,11 @@ bool radio_path(const MediumGrid* grid,
 
     if (!cell_of(grid, ax_nm, ay_nm, &ax, &ay) ||
         !cell_of(grid, bx_nm, by_nm, &bx, &by) ||
-        !segment_clear(grid, ax, ay, bx, by)) {
+        !segment_delay(grid, ax, ay, bx, by, &delay_ns)) {
         return blocked(rp);
     }
 
     rp->reachable = true;
-    rp->delay_ns =
-        isqrt_u64(d2 > UINT64_MAX ? UINT64_MAX
-                                  : (uint64_t)d2) /
-        params->c_nm_per_ns;
+    rp->delay_ns = (d2 == 0) ? 0 : delay_ns;
     return true;
 }

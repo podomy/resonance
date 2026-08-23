@@ -15,6 +15,7 @@ typedef enum {
     MATERIAL_DIRT,
     MATERIAL_WATER,
     MATERIAL_WOOD,
+    MATERIAL_COUNT,
 } Material;
 
 typedef struct {
@@ -28,7 +29,6 @@ typedef struct {
 
 typedef struct {
     uint64_t range_nm;
-    uint64_t c_nm_per_ns;
 } RadioParams;
 
 typedef struct {
