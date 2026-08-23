@@ -1,6 +1,10 @@
 #include "context.h"
 
-// Initializes clock, heap, node list, and RNG.
+#define DEFAULT_CELL_NM 1000000000ULL
+#define DEFAULT_GRID_N 8ULL
+#define DEFAULT_RANGE_NM 2500000000ULL
+
+// Initializes clock, heap, node list, grid, and RNG.
 bool context_init(Context* ctx, size_t heap_capacity,
                   uint64_t seed) {
     if (ctx == NULL) {
@@ -14,6 +18,8 @@ bool context_init(Context* ctx, size_t heap_capacity,
     ctx->nodes.cap = 0;
     ctx->nodes.by_id.data = NULL;
     ctx->nodes.by_id.cap = 0;
+    ctx->grid.cells = NULL;
+    ctx->radio.range_nm = DEFAULT_RANGE_NM;
     ctx->heap = heap_create(heap_capacity);
     if (ctx->heap == NULL) {
         return false;
@@ -23,11 +29,19 @@ bool context_init(Context* ctx, size_t heap_capacity,
         ctx->heap = NULL;
         return false;
     }
+    if (!mediumgrid_init(&ctx->grid, 0, 0, DEFAULT_CELL_NM,
+                         DEFAULT_GRID_N, DEFAULT_GRID_N,
+                         MATERIAL_AIR)) {
+        nodelist_free(&ctx->nodes);
+        heap_free(ctx->heap);
+        ctx->heap = NULL;
+        return false;
+    }
     rng_seed(&ctx->rng, seed);
     return true;
 }
 
-// Releases heap and node storage. Safe on NULL.
+// Releases heap, node, and grid storage. Safe on NULL.
 void context_free(Context* ctx) {
     if (ctx == NULL) {
         return;
@@ -35,11 +49,13 @@ void context_free(Context* ctx) {
     heap_free(ctx->heap);
     ctx->heap = NULL;
     nodelist_free(&ctx->nodes);
+    mediumgrid_free(&ctx->grid);
 }
 
 // Appends a node and assigns a monotonic id.
 bool context_add_node(Context* ctx, int64_t x_nm,
-                      int64_t y_nm, uint64_t* out_id) {
+                      int64_t y_nm, int64_t vx, int64_t vy,
+                      uint64_t* out_id) {
     if (ctx == NULL) {
         return false;
     }
@@ -47,6 +63,8 @@ bool context_add_node(Context* ctx, int64_t x_nm,
     node.id = ctx->next_node_id;
     node.x_nm = x_nm;
     node.y_nm = y_nm;
+    node.vx_nm_per_ns = vx;
+    node.vy_nm_per_ns = vy;
     if (!nodelist_push(&ctx->nodes, node)) {
         return false;
     }

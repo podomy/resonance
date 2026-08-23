@@ -21,6 +21,8 @@ typedef struct {
     uint64_t id;
     int64_t x_nm;
     int64_t y_nm;
+    int64_t vx_nm_per_ns;
+    int64_t vy_nm_per_ns;
 } Node;
 
 typedef struct {

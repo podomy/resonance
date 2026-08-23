@@ -3,4 +3,5 @@ resonance
 check/heap_test
 check/determinism
 check/node_test
+check/world_test
 *.o

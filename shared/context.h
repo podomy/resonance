@@ -4,6 +4,7 @@
 #include "../heap/heap.h"
 #include "../node/node.h"
 #include "../rng/rng.h"
+#include "../world/world.h"
 #include "events.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,18 +17,21 @@ struct Context {
     uint64_t next_seq;
     uint64_t next_node_id;
     NodeList nodes;
+    MediumGrid grid;
+    RadioParams radio;
 };
 
-// Initializes clock, heap, node list, and RNG.
+// Initializes clock, heap, node list, grid, and RNG.
 bool context_init(Context* ctx, size_t heap_capacity,
                   uint64_t seed);
 
-// Releases heap and node storage. Safe on NULL.
+// Releases heap, node, and grid storage. Safe on NULL.
 void context_free(Context* ctx);
 
 // Appends a node and assigns a monotonic id.
 bool context_add_node(Context* ctx, int64_t x_nm,
-                      int64_t y_nm, uint64_t* out_id);
+                      int64_t y_nm, int64_t vx, int64_t vy,
+                      uint64_t* out_id);
 
 // Returns the node with id, or NULL.
 Node* context_find_node(Context* ctx, uint64_t id);
