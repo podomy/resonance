@@ -44,6 +44,8 @@ bool context_enqueue(Context* ctx, uint64_t t,
                      uint64_t payload_len, uint64_t from_id,
                      uint64_t to_id, uint16_t src_port,
                      uint16_t dst_port);
+// Pops and runs events until the heap is empty. Handlers
+// must not destroy ctx.
 void context_run(Context* ctx);
 
 #endif

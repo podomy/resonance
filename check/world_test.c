@@ -2,7 +2,7 @@
 #include <assert.h>
 
 int main(void) {
-    MediumGrid grid;
+    MediumGrid grid = {0};
     RadioParams params;
     RadioPath rp;
 

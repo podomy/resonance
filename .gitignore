@@ -6,3 +6,4 @@ check/node_test
 check/world_test
 check/mcast_test
 *.o
+.cache/

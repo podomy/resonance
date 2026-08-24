@@ -8,7 +8,7 @@ bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
                      Material fill) {
     uint64_t n;
     if (grid == NULL || cell_nm == 0 || nx == 0 ||
-        ny == 0) {
+        ny == 0 || grid->cells != NULL) {
         return false;
     }
     if (nx > UINT64_MAX / ny) {
@@ -135,19 +135,30 @@ bool radio_path(const MediumGrid* grid,
                 int64_t ay_nm, int64_t bx_nm, int64_t by_nm,
                 RadioPath* rp) {
     int64_t ax, ay, bx, by;
-    __int128 dx, dy, d2, r2;
-
+    __int128 dx, dy, adx, ady;
+    unsigned __int128 d2, r2;
     uint64_t delay_ns;
 
     if (grid == NULL || params == NULL || rp == NULL ||
         grid->cells == NULL || grid->cell_nm == 0) {
         return blocked(rp);
     }
+    // Keeps the squares inside 128 bits.
+    if (params->range_nm > (uint64_t)INT64_MAX) {
+        return blocked(rp);
+    }
 
     dx = (__int128)bx_nm - ax_nm;
     dy = (__int128)by_nm - ay_nm;
-    d2 = dx * dx + dy * dy;
-    r2 = (__int128)params->range_nm * params->range_nm;
+    adx = dx < 0 ? -dx : dx;
+    ady = dy < 0 ? -dy : dy;
+    if (adx > (__int128)params->range_nm ||
+        ady > (__int128)params->range_nm) {
+        return blocked(rp);
+    }
+    d2 = (unsigned __int128)(adx * adx + ady * ady);
+    r2 = (unsigned __int128)params->range_nm *
+         params->range_nm;
     if (d2 > r2) {
         return blocked(rp);
     }

@@ -4,6 +4,8 @@
 /*
  * Test-only UDP. Delivery is radio_path plus enqueue.
  * Not used when a real binary talks through a TUN.
+ * Binds outlive their node: a datagram in flight still
+ * fires the callback of a since-removed node.
  */
 
 // Listener for (node_id, port), or NULL.

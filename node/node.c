@@ -70,7 +70,17 @@ bool nodelist_push(NodeList* list, Node node) {
     }
 
     if (list->len >= list->cap) {
-        size_t new_cap = list->cap * 2;
+        size_t new_cap;
+        if (list->cap == 0) {
+            new_cap = 1;
+        } else if (list->cap > SIZE_MAX / 2) {
+            return false;
+        } else {
+            new_cap = list->cap * 2;
+        }
+        if (new_cap > SIZE_MAX / sizeof(*list->data)) {
+            return false;
+        }
         Node* new_data = realloc(
             list->data, new_cap * sizeof(*list->data));
         if (new_data == NULL) {
