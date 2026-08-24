@@ -1,6 +1,12 @@
 #include "udp.h"
 #include "../shared/context.h"
 
+/*
+ * Test-only UDP. Delivery is radio_path plus enqueue.
+ * Not used when a real binary talks through a TUN.
+ */
+
+// Listener for (node_id, port), or NULL.
 static EventCallback bind_of(Context* ctx, uint64_t node_id,
                              uint16_t port) {
     size_t i;
@@ -13,6 +19,7 @@ static EventCallback bind_of(Context* ctx, uint64_t node_id,
     return (NULL);
 }
 
+// Demux a delivered datagram to the bound callback.
 static void
 on_udp_datagram(Context* ctx, Timestamp timestamp,
                 uint64_t seq, uint8_t* payload,
@@ -28,6 +35,7 @@ on_udp_datagram(Context* ctx, Timestamp timestamp,
        to_id, src_port, dst_port);
 }
 
+// Register one listener. Port 0 is invalid.
 bool udp_bind(Context* ctx, uint64_t node_id, uint16_t port,
               EventCallback cb) {
     if (ctx == NULL || cb == NULL || port == 0)
@@ -45,6 +53,7 @@ bool udp_bind(Context* ctx, uint64_t node_id, uint16_t port,
     return (true);
 }
 
+// Unicast. False if radio_path blocks or args are bad.
 bool udp_send(Context* ctx, uint64_t from_id,
               uint16_t src_port, uint64_t to_id,
               uint16_t dst_port, const uint8_t* buf,
@@ -68,6 +77,7 @@ bool udp_send(Context* ctx, uint64_t from_id,
                             src_port, dst_port));
 }
 
+// Fan-out. Skips self. A blocked hop is not an error.
 bool udp_mcast(Context* ctx, uint64_t from_id,
                uint16_t src_port, uint16_t dst_port,
                const uint8_t* buf, uint64_t len) {

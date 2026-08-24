@@ -14,8 +14,10 @@ HEAP_TEST =	check/heap_test
 NODE_TEST =	check/node_test
 WORLD_TEST =	check/world_test
 DET_TEST =	check/determinism
+MCAST_TEST =	check/mcast_test
 
-TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST}
+TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
+	${MCAST_TEST}
 
 .PHONY: all clean check
 
@@ -39,11 +41,15 @@ LIBSRCS =	heap/heap.c rng/rng.c shared/context.c \
 ${DET_TEST}: check/determinism.c ${LIBSRCS}
 	${CC} ${CFLAGS} -o $@ check/determinism.c ${LIBSRCS}
 
+${MCAST_TEST}: check/mcast_test.c ${LIBSRCS}
+	${CC} ${CFLAGS} -o $@ check/mcast_test.c ${LIBSRCS}
+
 check: ${TESTS}
 	./${HEAP_TEST}
 	./${NODE_TEST}
 	./${WORLD_TEST}
 	./${DET_TEST}
+	./${MCAST_TEST}
 
 clean:
 	rm -f ${PROG} ${TESTS}

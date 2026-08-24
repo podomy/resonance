@@ -5,6 +5,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/*
+ * In-process UDP for C tests and scenarios.
+ * Raw Concord binaries will not call this; they use
+ * kernel sockets and a TUN. Keep this module for
+ * make check and small experiments.
+ */
+
 #define UDP_BIND_MAX 16
 
 typedef struct {
