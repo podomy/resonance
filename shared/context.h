@@ -4,6 +4,7 @@
 #include "../heap/heap.h"
 #include "../node/node.h"
 #include "../rng/rng.h"
+#include "../udp/udp.h"
 #include "../world/world.h"
 #include "events.h"
 #include <stdbool.h>
@@ -19,31 +20,30 @@ struct Context {
     NodeList nodes;
     MediumGrid grid;
     RadioParams radio;
+    UdpBind udp_binds[UDP_BIND_MAX];
+    size_t udp_bind_n;
 };
 
-// Initializes clock, heap, node list, grid, and RNG.
 bool context_init(Context* ctx, size_t heap_capacity,
                   uint64_t seed);
-
-// Releases heap, node, and grid storage. Safe on NULL.
 void context_free(Context* ctx);
-
-// Appends a node and assigns a monotonic id.
 bool context_add_node(Context* ctx, int64_t x_nm,
                       int64_t y_nm, int64_t vx, int64_t vy,
                       uint64_t* out_id);
-
-// Returns the node with id, or NULL.
 Node* context_find_node(Context* ctx, uint64_t id);
-
-// Swap-remove the node with this id.
 bool context_remove_node(Context* ctx, uint64_t id);
-
-// Queues cb at t. Rejects t earlier than the clock.
 bool context_schedule(Context* ctx, uint64_t nanoseconds,
-                      EventCallback cb, uint64_t payload);
-
-// Pops and runs events until the heap is empty.
+                      EventCallback cb, uint64_t to_id);
+bool context_send(Context* ctx, uint64_t from_id,
+                  uint64_t to_id, const uint8_t* payload,
+                  uint64_t payload_len,
+                  EventCallback on_recv);
+bool context_enqueue(Context* ctx, uint64_t t,
+                     EventCallback cb,
+                     const uint8_t* payload,
+                     uint64_t payload_len, uint64_t from_id,
+                     uint64_t to_id, uint16_t src_port,
+                     uint16_t dst_port);
 void context_run(Context* ctx);
 
 #endif

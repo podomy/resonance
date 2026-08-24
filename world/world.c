@@ -66,37 +66,24 @@ static bool blocked(RadioPath* rp) {
     return false;
 }
 
-// Maps nm to a cell. False if outside the grid.
-// Here we have an assumption of one corner of the map,
-// as being the minimum and the origin.
+// nm -> cell index. False if outside the map.
 static bool cell_of(const MediumGrid* grid, int64_t x_nm,
                     int64_t y_nm, int64_t* ix,
                     int64_t* iy) {
-    uint64_t ux;
-    uint64_t uy;
+    uint64_t ux, uy;
 
-    // If the coordinate is not inside the map and any of
-    // the cells then we return false.
     if (x_nm < grid->origin_x_nm ||
-        y_nm < grid->origin_y_nm) {
-        return false;
-    }
-
-    // Distance from the origin that the point has in cell
-    // indices.
+        y_nm < grid->origin_y_nm)
+        return (false);
     ux = (uint64_t)(x_nm - grid->origin_x_nm) /
          grid->cell_nm;
     uy = (uint64_t)(y_nm - grid->origin_y_nm) /
          grid->cell_nm;
-
-    // The mapped indices go out of the bounds of the map.
-    // We return false, because it is out of range, too far.
-    if (ux >= grid->nx || uy >= grid->ny) {
-        return false;
-    }
+    if (ux >= grid->nx || uy >= grid->ny)
+        return (false);
     *ix = (int64_t)ux;
     *iy = (int64_t)uy;
-    return true;
+    return (true);
 }
 
 // Walks cells A to B. Adds cell_nm/c per cell. False if

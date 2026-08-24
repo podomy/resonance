@@ -1,32 +1,37 @@
 [
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c main.c",
-    "file": "main.c"
+    "file": "main.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c main.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c heap/heap.c",
-    "file": "heap/heap.c"
+    "file": "heap/heap.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c heap/heap.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c rng/rng.c",
-    "file": "rng/rng.c"
+    "file": "rng/rng.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c rng/rng.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c shared/context.c",
-    "file": "shared/context.c"
+    "file": "shared/context.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c shared/context.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c check/heap_test.c",
-    "file": "check/heap_test.c"
+    "file": "node/node.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c node/node.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "command": "gcc -std=c11 -Wall -Wextra -Werror -O2 -c check/determinism.c",
-    "file": "check/determinism.c"
+    "file": "world/world.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c world/world.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "file": "udp/udp.c",
+    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c udp/udp.c"
   }
 ]

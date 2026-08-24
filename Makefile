@@ -1,34 +1,49 @@
-CC ?= gcc
-CFLAGS ?= -std=c11 -Wall -Wextra -Werror -O2
+CC ?= cc
+CFLAGS += -std=c11 -Wall -Wextra -Werror -O2
+
+PROG =	resonance
+SRCS =	main.c \
+	heap/heap.c \
+	rng/rng.c \
+	shared/context.c \
+	node/node.c \
+	world/world.c \
+	udp/udp.c
+
+HEAP_TEST =	check/heap_test
+NODE_TEST =	check/node_test
+WORLD_TEST =	check/world_test
+DET_TEST =	check/determinism
+
+TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST}
 
 .PHONY: all clean check
 
-all: resonance
+all: ${PROG}
 
-resonance: main.c heap/heap.c rng/rng.c shared/context.c \
-		node/node.c world/world.c
-	$(CC) $(CFLAGS) -o $@ $^
+${PROG}: ${SRCS}
+	${CC} ${CFLAGS} -o $@ ${SRCS}
 
-check/heap_test: check/heap_test.c heap/heap.c
-	$(CC) $(CFLAGS) -o $@ $^
+${HEAP_TEST}: check/heap_test.c heap/heap.c
+	${CC} ${CFLAGS} -o $@ check/heap_test.c heap/heap.c
 
-check/determinism: check/determinism.c heap/heap.c rng/rng.c \
-		shared/context.c node/node.c world/world.c
-	$(CC) $(CFLAGS) -o $@ $^
+${NODE_TEST}: check/node_test.c node/node.c
+	${CC} ${CFLAGS} -o $@ check/node_test.c node/node.c
 
-check/node_test: check/node_test.c node/node.c
-	$(CC) $(CFLAGS) -o $@ $^
+${WORLD_TEST}: check/world_test.c world/world.c
+	${CC} ${CFLAGS} -o $@ check/world_test.c world/world.c
 
-check/world_test: check/world_test.c world/world.c
-	$(CC) $(CFLAGS) -o $@ $^
+LIBSRCS =	heap/heap.c rng/rng.c shared/context.c \
+		node/node.c world/world.c udp/udp.c
+
+${DET_TEST}: check/determinism.c ${LIBSRCS}
+	${CC} ${CFLAGS} -o $@ check/determinism.c ${LIBSRCS}
+
+check: ${TESTS}
+	./${HEAP_TEST}
+	./${NODE_TEST}
+	./${WORLD_TEST}
+	./${DET_TEST}
 
 clean:
-	rm -f resonance check/heap_test check/determinism \
-		check/node_test check/world_test
-
-check: check/heap_test check/determinism check/node_test \
-		check/world_test
-	./check/heap_test
-	./check/determinism
-	./check/node_test
-	./check/world_test
+	rm -f ${PROG} ${TESTS}
