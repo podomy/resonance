@@ -5,5 +5,9 @@ check/determinism
 check/node_test
 check/world_test
 check/mcast_test
+check/tun_smoke
+check/tun_test
+check/tun_pair
+check/tun_netns
 *.o
 .cache/

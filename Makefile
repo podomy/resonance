@@ -8,16 +8,21 @@ SRCS =	main.c \
 	shared/context.c \
 	node/node.c \
 	world/world.c \
-	udp/udp.c
+	udp/udp.c \
+	math/math.c \
+	tun/tun.c
 
 HEAP_TEST =	check/heap_test
 NODE_TEST =	check/node_test
 WORLD_TEST =	check/world_test
 DET_TEST =	check/determinism
 MCAST_TEST =	check/mcast_test
+TUN_TEST =	check/tun_test
+TUN_PAIR =	check/tun_pair
+TUN_NETNS =	check/tun_netns
 
 TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
-	${MCAST_TEST}
+	${MCAST_TEST} ${TUN_TEST} ${TUN_PAIR} ${TUN_NETNS}
 
 .PHONY: all clean check
 
@@ -44,12 +49,27 @@ ${DET_TEST}: check/determinism.c ${LIBSRCS}
 ${MCAST_TEST}: check/mcast_test.c ${LIBSRCS}
 	${CC} ${CFLAGS} -o $@ check/mcast_test.c ${LIBSRCS}
 
+${TUN_TEST}: check/tun_test.c tun/tun.c math/math.c
+	${CC} ${CFLAGS} -o $@ check/tun_test.c tun/tun.c \
+		math/math.c
+
+${TUN_PAIR}: check/tun_pair.c tun/tun.c math/math.c
+	${CC} ${CFLAGS} -o $@ check/tun_pair.c tun/tun.c \
+		math/math.c
+
+${TUN_NETNS}: check/tun_netns.c tun/tun.c math/math.c
+	${CC} ${CFLAGS} -o $@ check/tun_netns.c tun/tun.c \
+		math/math.c
+
 check: ${TESTS}
 	./${HEAP_TEST}
 	./${NODE_TEST}
 	./${WORLD_TEST}
 	./${DET_TEST}
 	./${MCAST_TEST}
+	./${TUN_TEST}
+	./${TUN_PAIR}
+	./${TUN_NETNS}
 
 clean:
 	rm -f ${PROG} ${TESTS}
