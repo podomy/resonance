@@ -6,5 +6,6 @@ check/node_test
 check/world_test
 check/mcast_test
 check/tun_netns
+check/tun_drop
 *.o
 .cache/

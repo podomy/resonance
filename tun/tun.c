@@ -4,13 +4,14 @@
 #include <linux/if.h>
 #include <linux/if_tun.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 bool tun_map_add(TunMap* map, int fd, const uint8_t ip[4],
-                 int64_t x_nm, int64_t y_nm) {
+                 uint64_t node_id) {
     TunSlot* s;
 
     if (map == NULL || ip == NULL || fd < 0)
@@ -20,8 +21,7 @@ bool tun_map_add(TunMap* map, int fd, const uint8_t ip[4],
     s = &map->slot[map->n];
     s->fd = fd;
     memcpy(s->ip, ip, 4);
-    s->x_nm = x_nm;
-    s->y_nm = y_nm;
+    s->node_id = node_id;
     map->n++;
     return (true);
 }
@@ -49,23 +49,61 @@ static TunSlot* slot_of_ip(TunMap* map, const uint8_t ip[4],
 }
 
 void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
-                 RadioParams* radio) {
+                 RadioParams* radio, NodeList* nodes) {
     uint8_t buf[2048];
     ssize_t n;
     TunSlot* from;
-    TunSlot* to;
+    Node* fn;
 
-    if (map == NULL || grid == NULL || radio == NULL)
+    if (map == NULL || grid == NULL || radio == NULL ||
+        nodes == NULL)
         return;
     n = read(from_fd, buf, sizeof(buf));
     if (n < 20 || (buf[0] >> 4) != 4)
         return;
+
     from = slot_of_fd(map, from_fd);
+    if (from == NULL)
+        return;
+    fn = nodelist_find(nodes, from->node_id);
+    if (fn == NULL)
+        return;
+
+    // If broadcast address is specified we broadcast the
+    // message, Multicast is treated as broadcast until we
+    // implement an IGMP table.
+    if ((buf[16] == 10 && buf[17] == 0 && buf[18] == 0 &&
+         buf[19] == 255) ||
+        (buf[16] & 0xF0) == 0xE0) {
+        size_t i;
+
+        for (i = 0; i < map->n; i++) {
+            TunSlot* peer = &map->slot[i];
+            Node* pn;
+
+            if (peer->fd == from_fd)
+                continue;
+            pn = nodelist_find(nodes, peer->node_id);
+            if (pn == NULL)
+                continue;
+            tun_forward(peer->fd, buf, (size_t)n, grid,
+                        radio, fn->x_nm, fn->y_nm, pn->x_nm,
+                        pn->y_nm);
+        }
+        return;
+    }
+
+    TunSlot* to;
+    Node* tn;
+
     to = slot_of_ip(map, &buf[16], from_fd);
-    if (from == NULL || to == NULL)
+    if (to == NULL)
+        return;
+    tn = nodelist_find(nodes, to->node_id);
+    if (tn == NULL)
         return;
     tun_forward(to->fd, buf, (size_t)n, grid, radio,
-                from->x_nm, from->y_nm, to->x_nm, to->y_nm);
+                fn->x_nm, fn->y_nm, tn->x_nm, tn->y_nm);
 }
 
 bool tun_forward(int to_fd, const uint8_t* buf, size_t n,

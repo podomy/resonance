@@ -36,13 +36,13 @@ int main(void) {
     na.vx_nm_per_ns = 0;
     na.vy_nm_per_ns = 0;
     nb.id = 1;
-    nb.x_nm = 0;
+    nb.x_nm = 10000000000LL;
     nb.y_nm = 0;
     nb.vx_nm_per_ns = 0;
     nb.vy_nm_per_ns = 0;
 
     if (!open_tun_file("tun_node_a", &fd_a)) {
-        printf("tun_netns: skip (%s)\n", strerror(errno));
+        printf("tun_drop: skip (%s)\n", strerror(errno));
         return (0);
     }
 
@@ -114,9 +114,8 @@ int main(void) {
     mediumgrid_free(&grid);
     nodelist_free(&nodes);
     run("ip netns del net_namespace_nodeb");
-    if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
-        fprintf(stderr, "tun_netns: ping got no reply\n");
-        return (1);
-    }
-    return (0);
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+        return (0);
+    fprintf(stderr, "tun_drop: ping should have failed\n");
+    return (1);
 }

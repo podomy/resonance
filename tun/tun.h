@@ -1,20 +1,18 @@
 #ifndef TUN_H
 #define TUN_H
 
+#include "../node/node.h"
 #include "../world/world.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-// We have one tun per node, this effectively acts like
-// a node number limiter.
 #define TUN_MAP_MAX 100
 
 typedef struct {
     int fd;
     uint8_t ip[4];
-    int64_t x_nm;
-    int64_t y_nm;
+    uint64_t node_id;
 } TunSlot;
 
 typedef struct {
@@ -25,11 +23,12 @@ typedef struct {
 bool open_tun_file(const char* name, int* fd);
 
 bool tun_map_add(TunMap* map, int fd, const uint8_t ip[4],
-                 int64_t x_nm, int64_t y_nm);
+                 uint64_t node_id);
 
-// read(fd), dest IP -> peer, then tun_forward.
+// read(fd), dest IP -> peer, then tun_forward with Node
+// positions.
 void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
-                 RadioParams* radio);
+                 RadioParams* radio, NodeList* nodes);
 
 /*
  * radio_path, then write. delay_ns is not slept here;

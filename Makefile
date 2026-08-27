@@ -18,9 +18,10 @@ WORLD_TEST =	check/world_test
 DET_TEST =	check/determinism
 MCAST_TEST =	check/mcast_test
 TUN_NETNS =	check/tun_netns
+TUN_DROP =	check/tun_drop
 
 TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
-	${MCAST_TEST} ${TUN_NETNS}
+	${MCAST_TEST} ${TUN_NETNS} ${TUN_DROP}
 
 .PHONY: all clean check
 
@@ -48,9 +49,14 @@ ${MCAST_TEST}: check/mcast_test.c ${LIBSRCS}
 	${CC} ${CFLAGS} -o $@ check/mcast_test.c ${LIBSRCS}
 
 ${TUN_NETNS}: check/tun_netns.c tun/tun.c math/math.c \
-		world/world.c
+		world/world.c node/node.c
 	${CC} ${CFLAGS} -o $@ check/tun_netns.c tun/tun.c \
-		math/math.c world/world.c
+		math/math.c world/world.c node/node.c
+
+${TUN_DROP}: check/tun_drop.c tun/tun.c math/math.c \
+		world/world.c node/node.c
+	${CC} ${CFLAGS} -o $@ check/tun_drop.c tun/tun.c \
+		math/math.c world/world.c node/node.c
 
 check: ${TESTS}
 	./${HEAP_TEST}
@@ -59,6 +65,7 @@ check: ${TESTS}
 	./${DET_TEST}
 	./${MCAST_TEST}
 	./${TUN_NETNS}
+	./${TUN_DROP}
 
 clean:
 	rm -f ${PROG} ${TESTS}
