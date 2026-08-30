@@ -6,13 +6,8 @@
 </p>
 
 Resonance simulates autonomous nodes moving in physical 2D space and the
-network mesh as nodes move in and out of range.
-
-Deterministic discrete-event model with seeded RNG. Same scenario, same
-outcome. Reachability and delay from positions and medium.
-
-Complements Concord. Concord coordinates fleets through partitions, Resonance
-simulates the physical world that creates them.
+network mesh and interference as they move in and out of range. It was
+primarily made for Concord to create a flywheel of software and simulation.
 
 ### Build and test
 
