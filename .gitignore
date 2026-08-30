@@ -1,5 +1,6 @@
 .zed/
 resonance
+certs/
 check/heap_test
 check/determinism
 check/node_test
