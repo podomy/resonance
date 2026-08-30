@@ -5,22 +5,14 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/podomy/resonance" alt="License"></a>
 </p>
 
-Resonance is a physical-world simulation environment for distributed systems.
-It models autonomous nodes -- drones, rovers, satellites, edge vehicles --
-moving through physical 2D space and realistically simulates the underlying
+Resonance simulates autonomous nodes moving in physical 2D space and the
 network mesh as nodes move in and out of range.
 
-Resonance is designed for deterministic, reproducible experimentation.
-Mobility, radio propagation, and packet delivery are driven by an explicit
-discrete-event model with a seeded RNG, so the same scenario yields the same
-outcome on every run. The simulation does not hide the physical layer behind
-an ideal link abstraction; it computes reachability and delay from positions
-and the medium that lies between them.
+Deterministic discrete-event model with seeded RNG. Same scenario, same
+outcome. Reachability and delay from positions and medium.
 
-Resonance complements Concord. Concord coordinates a fleet when the network
-is degraded or partitioned; Resonance simulates the world that causes those
-partitions -- terrain, distance, and interference -- before the fleet is
-deployed.
+Complements Concord. Concord coordinates fleets through partitions, Resonance
+simulates the physical world that creates them.
 
 ### Build and test
 
@@ -31,19 +23,18 @@ make clean    # remove binaries and test artifacts
 ```
 
 Compiler is `cc` with `-std=c11 -Wall -Wextra -Werror -O2`.
-No external dependencies.
 
 ### Project structure
 
-- `world/` -- 2D medium grid and radio propagation (`MediumGrid`, `Material`, `RadioParams`, `radio_path`)
-- `node/` -- node identity, position, velocity, and indexed storage (`Node`, `NodeList`)
-- `shared/` -- discrete-event context, event heap, and deterministic scheduling (`Context`)
-- `heap/` -- min-heap backing the event queue
-- `rng/` -- seeded deterministic RNG
-- `udp/` -- UDP bindings and delivery through the simulated medium
-- `tun/` -- TUN device integration and `TunMap` forwarding
-- `math/` -- fixed-point and geometric helpers
-- `check/` -- verification programs run by `make check`
+- `world/`: medium grid and radio propagation
+- `node/`: node identity, position, velocity
+- `shared/`: discrete-event context and scheduling
+- `heap/`: min-heap for event queue
+- `rng/`: seeded RNG
+- `udp/`: UDP delivery through simulated medium
+- `tun/`: TUN device and forwarding
+- `math/`: helpers
+- `check/`: verification programs
 
 ### Checks
 
@@ -57,8 +48,7 @@ No external dependencies.
 | `check/tun_netns` | TUN forwarding across network namespaces (needs `CAP_NET_ADMIN`) |
 | `check/tun_drop` | TUN drop on unreachable path (needs `CAP_NET_ADMIN`) |
 
-The last two tests gracefully skip when the runner lacks permission to
-create TUN devices or network namespaces.
+Last two tests skip without `CAP_NET_ADMIN`.
 
 ### Contributing
 
