@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Run checks
+        run: make check
+
+  build:
+    name: Build Binaries
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build binary
+        run: |
+          mkdir -p dist
+          make
+          cp resonance dist/resonance-linux-amd64
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: resonance-linux-amd64
+          path: dist/resonance-linux-amd64
+          retention-days: 30
