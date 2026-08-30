@@ -38,17 +38,15 @@ Compiler is `cc` with `-std=c11 -Wall -Wextra -Werror -O2`.
 
 ### Checks
 
-| Test | What it covers |
-|------|----------------|
-| `check/heap_test` | Min-heap ordering and invariants |
-| `check/node_test` | `NodeList` indexing and swap-remove |
-| `check/world_test` | Grid initialization and radio reachability |
-| `check/determinism` | End-to-end determinism under a fixed seed |
-| `check/mcast_test` | Multicast delivery through the medium |
-| `check/tun_netns` | TUN forwarding across network namespaces (needs `CAP_NET_ADMIN`) |
-| `check/tun_drop` | TUN drop on unreachable path (needs `CAP_NET_ADMIN`) |
+- `check/heap_test`: heap ordering
+- `check/node_test`: NodeList indexing
+- `check/world_test`: grid and radio
+- `check/determinism`: determinism under fixed seed
+- `check/mcast_test`: multicast delivery
+- `check/tun_netns`: TUN forwarding, needs `CAP_NET_ADMIN`
+- `check/tun_drop`: TUN drop, needs `CAP_NET_ADMIN`
 
-Last two tests skip without `CAP_NET_ADMIN`.
+Last two skip without `CAP_NET_ADMIN`.
 
 ### Contributing
 
