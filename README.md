@@ -22,32 +22,6 @@ make check    # build and run all checks
 make clean    # remove binaries and test artifacts
 ```
 
-Compiler is `cc` with `-std=c11 -Wall -Wextra -Werror -O2`.
-
-### Project structure
-
-- `world/`: medium grid and radio propagation
-- `node/`: node identity, position, velocity
-- `shared/`: discrete-event context and scheduling
-- `heap/`: min-heap for event queue
-- `rng/`: seeded RNG
-- `udp/`: UDP delivery through simulated medium
-- `tun/`: TUN device and forwarding
-- `math/`: helpers
-- `check/`: verification programs
-
-### Checks
-
-- `check/heap_test`: heap ordering
-- `check/node_test`: NodeList indexing
-- `check/world_test`: grid and radio
-- `check/determinism`: determinism under fixed seed
-- `check/mcast_test`: multicast delivery
-- `check/tun_netns`: TUN forwarding, needs `CAP_NET_ADMIN`
-- `check/tun_drop`: TUN drop, needs `CAP_NET_ADMIN`
-
-Last two skip without `CAP_NET_ADMIN`.
-
 ### Contributing
 
 Discuss your change with the community before opening a PR
