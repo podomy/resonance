@@ -7,7 +7,7 @@
 
 Resonance simulates autonomous nodes moving in physical 2D space and the
 network mesh and interference as they move in and out of range. It was
-primarily made for Concord to create a flywheel of software and simulation.
+primarily made for [Concord](https://github.com/podomy/concord) to create a flywheel of software and simulation.
 
 ### Build and test
 
