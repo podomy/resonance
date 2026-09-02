@@ -1,0 +1,124 @@
+#define _GNU_SOURCE
+#include "../node/node.h"
+#include "../tun/tun.h"
+#include "../world/world.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <sched.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+static int run(const char *s) {
+    return (system(s) == 0);
+}
+
+// mcast checks multicast 224.0.0.251 via tun.
+int main(void) {
+    int fa, fb;
+    pid_t pid;
+    int st;
+
+    if (!open_tun_file("tun0", &fa)) {
+        printf("mcast: skip (%s)\n", strerror(errno));
+        return (0);
+    }
+    run("ip netns del cable 2>/dev/null");
+    if (!run("ip netns add cable"))
+        return (1);
+    int old = open("/proc/self/ns/net", O_RDONLY);
+    int ns = open("/var/run/netns/cable", O_RDONLY);
+    if (setns(ns, CLONE_NEWNET) != 0)
+        return (1);
+    if (!open_tun_file("tun1", &fb))
+        return (1);
+    setns(old, CLONE_NEWNET);
+    close(old);
+    close(ns);
+
+    if (!run("ip addr add 10.0.0.1/24 dev tun0") ||
+        !run("ip link set tun0 up") ||
+        !run("ip link set tun0 multicast on") ||
+        !run("ip route add 224.0.0.0/4 dev tun0") ||
+        !run("ip netns exec cable ip link set lo up") ||
+        !run("ip netns exec cable ip addr add 10.0.0.2/24 dev tun1") ||
+        !run("ip netns exec cable ip link set tun1 up") ||
+        !run("ip netns exec cable ip link set tun1 multicast on") ||
+        !run("ip netns exec cable ip route add 224.0.0.0/4 dev tun1"))
+        return (1);
+
+    MediumGrid g = {0};
+    RadioParams r;
+    TunMap m = {0};
+    NodeList nl = {0};
+    Node a;
+    Node b;
+
+    r.range_nm = 2500000000ULL;
+    a.id = 0;
+    a.x_nm = 0;
+    a.y_nm = 0;
+    a.vx_nm_per_ns = 0;
+    a.vy_nm_per_ns = 0;
+    b.id = 1;
+    b.x_nm = 0;
+    b.y_nm = 0;
+    b.vx_nm_per_ns = 0;
+    b.vy_nm_per_ns = 0;
+    uint8_t ipa[4] = {10, 0, 0, 1};
+    uint8_t ipb[4] = {10, 0, 0, 2};
+    mediumgrid_init(&g, 0, 0, 1000000000ULL, 8, 8, MATERIAL_AIR);
+    nodelist_init(&nl, 4);
+    nodelist_push(&nl, a);
+    nodelist_push(&nl, b);
+    tun_map_add(&m, fa, ipa, 0);
+    tun_map_add(&m, fb, ipb, 1);
+
+    pid = fork();
+    if (pid == 0) {
+        // Listener in netns joins 224.0.0.251.
+        if (setns(open("/var/run/netns/cable", O_RDONLY), CLONE_NEWNET) != 0)
+            _exit(1);
+        execlp("timeout", "timeout", "3", "socat",
+               "UDP4-RECVFROM:5353,ip-add-membership=224.0.0.251:10.0.0.2,reuseaddr", "STDOUT", NULL);
+        _exit(127);
+    }
+    // Give listener time to join.
+    usleep(500000);
+    pid_t pid2 = fork();
+    if (pid2 == 0) {
+        execlp("sh", "sh", "-c", "echo hello | socat STDIN UDP4-DATAGRAM:224.0.0.251:5353,multicast-ttl=1", NULL);
+        _exit(127);
+    }
+    struct pollfd p[2] = {{fa, POLLIN, 0}, {fb, POLLIN, 0}};
+    int done = 0;
+    int fwd = 0;
+    while (!done) {
+        if (poll(p, 2, 100) > 0) {
+            if (p[0].revents & POLLIN) {
+                tun_pump_fd(&m, fa, &g, &r, &nl);
+                fwd = 1;
+            }
+            if (p[1].revents & POLLIN) {
+                tun_pump_fd(&m, fb, &g, &r, &nl);
+                fwd = 1;
+            }
+        }
+        if (waitpid(pid, &st, WNOHANG) != 0)
+            done = 1;
+        if (waitpid(pid2, &st, WNOHANG) != 0 && done)
+            break;
+    }
+    close(fa);
+    close(fb);
+    mediumgrid_free(&g);
+    nodelist_free(&nl);
+    run("ip netns del cable");
+    // hello printed means tun forwarded multicast as broadcast.
+    if (fwd)
+        return (0);
+    fprintf(stderr, "mcast: multicast not forwarded\n");
+    return (1);
+}
