@@ -26,8 +26,8 @@ int main(void) {
     RadioParams radio;
     TunMap map = {0};
     NodeList nodes = {0};
-    uint8_t ip_a[4] = {10, 0, 0, 1};
-    uint8_t ip_b[4] = {10, 0, 0, 2};
+    uint8_t ip_a[4] = {192, 168, 100, 1};
+    uint8_t ip_b[4] = {192, 168, 100, 2};
     Node na, nb;
 
     na.id = 0;
@@ -64,13 +64,13 @@ int main(void) {
     close(oldfd);
     close(nsfd);
 
-    if (!run("ip addr add 10.0.0.1/24 dev tun_node_a") ||
+    if (!run("ip addr add 192.168.100.1/24 dev tun_node_a") ||
         !run("ip link set tun_node_a up"))
         return (1);
     if (!run("ip netns exec net_namespace_nodeb ip link "
              "set lo up") ||
         !run("ip netns exec net_namespace_nodeb ip addr "
-             "add 10.0.0.2/24 dev tun_node_b") ||
+             "add 192.168.100.2/24 dev tun_node_b") ||
         !run("ip netns exec net_namespace_nodeb ip link "
              "set tun_node_b up"))
         return (1);
@@ -90,7 +90,8 @@ int main(void) {
     if (pid < 0)
         return (1);
     if (pid == 0) {
-        execlp("ping", "ping", "-c2", "-W2", "10.0.0.2",
+        execlp("sh", "sh", "-c",
+               "ping -c2 -W2 192.168.100.2 > /dev/null 2>&1",
                (char*)NULL);
         _exit(127);
     }

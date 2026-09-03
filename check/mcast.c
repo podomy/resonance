@@ -38,12 +38,12 @@ int main(void) {
     close(old);
     close(ns);
 
-    if (!run("ip addr add 10.0.0.1/24 dev tun0") ||
+    if (!run("ip addr add 192.168.100.1/24 dev tun0") ||
         !run("ip link set tun0 up") ||
         !run("ip link set tun0 multicast on") ||
         !run("ip route add 224.0.0.0/4 dev tun0") ||
         !run("ip netns exec cable ip link set lo up") ||
-        !run("ip netns exec cable ip addr add 10.0.0.2/24 dev tun1") ||
+        !run("ip netns exec cable ip addr add 192.168.100.2/24 dev tun1") ||
         !run("ip netns exec cable ip link set tun1 up") ||
         !run("ip netns exec cable ip link set tun1 multicast on") ||
         !run("ip netns exec cable ip route add 224.0.0.0/4 dev tun1"))
@@ -67,8 +67,8 @@ int main(void) {
     b.y_nm = 0;
     b.vx_nm_per_ns = 0;
     b.vy_nm_per_ns = 0;
-    uint8_t ipa[4] = {10, 0, 0, 1};
-    uint8_t ipb[4] = {10, 0, 0, 2};
+    uint8_t ipa[4] = {192, 168, 100, 1};
+    uint8_t ipb[4] = {192, 168, 100, 2};
     mediumgrid_init(&g, 0, 0, 1000000000ULL, 8, 8, MATERIAL_AIR);
     nodelist_init(&nl, 4);
     nodelist_push(&nl, a);
@@ -82,7 +82,7 @@ int main(void) {
         if (setns(open("/var/run/netns/cable", O_RDONLY), CLONE_NEWNET) != 0)
             _exit(1);
         execlp("timeout", "timeout", "3", "socat",
-               "UDP4-RECVFROM:5353,ip-add-membership=224.0.0.251:10.0.0.2,reuseaddr", "STDOUT", NULL);
+               "UDP4-RECVFROM:5353,ip-add-membership=224.0.0.251:192.168.100.2,reuseaddr", "STDOUT", NULL);
         _exit(127);
     }
     // Give listener time to join.

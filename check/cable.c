@@ -38,10 +38,10 @@ int main(void) {
     close(old);
     close(ns);
 
-    if (!run("ip addr add 10.0.0.1/24 dev tun0") ||
+    if (!run("ip addr add 192.168.100.1/24 dev tun0") ||
         !run("ip link set tun0 up") ||
         !run("ip netns exec cable ip link set lo up") ||
-        !run("ip netns exec cable ip addr add 10.0.0.2/24 dev tun1") ||
+        !run("ip netns exec cable ip addr add 192.168.100.2/24 dev tun1") ||
         !run("ip netns exec cable ip link set tun1 up"))
         return (1);
 
@@ -63,8 +63,8 @@ int main(void) {
     b.y_nm = 0;
     b.vx_nm_per_ns = 0;
     b.vy_nm_per_ns = 0;
-    uint8_t ipa[4] = {10, 0, 0, 1};
-    uint8_t ipb[4] = {10, 0, 0, 2};
+    uint8_t ipa[4] = {192, 168, 100, 1};
+    uint8_t ipb[4] = {192, 168, 100, 2};
     mediumgrid_init(&g, 0, 0, 1000000000ULL, 8, 8, MATERIAL_AIR);
     nodelist_init(&nl, 4);
     nodelist_push(&nl, a);
@@ -74,7 +74,7 @@ int main(void) {
 
     pid = fork();
     if (pid == 0) {
-        execlp("ping", "ping", "-c1", "-W2", "10.0.0.2", NULL);
+        execlp("ping", "ping", "-c1", "-W2", "192.168.100.2", NULL);
         _exit(127);
     }
     struct pollfd p[2] = {{fa, POLLIN, 0}, {fb, POLLIN, 0}};

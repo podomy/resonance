@@ -1,103 +1,62 @@
 CC ?= cc
 CFLAGS += -std=c11 -Wall -Wextra -Werror -O2
+export PATH := /usr/local/go/bin:$(PATH)
 
-PROG =	resonance
-SRCS =	main.c sim/sim.c \
-	heap/heap.c \
-	rng/rng.c \
-	shared/context.c \
-	node/node.c \
-	world/world.c \
-	udp/udp.c \
-	math/math.c \
-	tun/tun.c
+all: resonance
 
-HEAP_TEST =	check/heap_test
-NODE_TEST =	check/node_test
-WORLD_TEST =	check/world_test
-DET_TEST =	check/determinism
-MCAST_TEST =	check/mcast_test
-TUN_NETNS =	check/tun_netns
-TUN_DROP =	check/tun_drop
-CABLE =		check/cable
-MCAST =		check/mcast
-CONCORD_TWO =	check/concord_two
+resonance: main.c sim/sim.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c math/math.c tun/tun.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
-	${MCAST_TEST} ${TUN_NETNS} ${TUN_DROP}
+check/heap_test: check/heap_test.c heap/heap.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-.PHONY: all clean check check-concord concord
+check/node_test: check/node_test.c node/node.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-all: ${PROG}
+check/world_test: check/world_test.c world/world.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-${PROG}: ${SRCS}
-	${CC} ${CFLAGS} -o $@ ${SRCS}
+check/determinism: check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-${HEAP_TEST}: check/heap_test.c heap/heap.c
-	${CC} ${CFLAGS} -o $@ check/heap_test.c heap/heap.c
+check/mcast_test: check/mcast_test.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-${NODE_TEST}: check/node_test.c node/node.c
-	${CC} ${CFLAGS} -o $@ check/node_test.c node/node.c
+check/tun_netns: check/tun_netns.c tun/tun.c math/math.c world/world.c node/node.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-${WORLD_TEST}: check/world_test.c world/world.c
-	${CC} ${CFLAGS} -o $@ check/world_test.c world/world.c
+check/tun_drop: check/tun_drop.c tun/tun.c math/math.c world/world.c node/node.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-LIBSRCS =	heap/heap.c rng/rng.c shared/context.c \
-		node/node.c world/world.c udp/udp.c
+SIM_SRCS = sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c
 
-${DET_TEST}: check/determinism.c ${LIBSRCS}
-	${CC} ${CFLAGS} -o $@ check/determinism.c ${LIBSRCS}
+check/cable: check/cable.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-${MCAST_TEST}: check/mcast_test.c ${LIBSRCS}
-	${CC} ${CFLAGS} -o $@ check/mcast_test.c ${LIBSRCS}
+check/mcast: check/mcast.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-${TUN_NETNS}: check/tun_netns.c tun/tun.c math/math.c \
-		world/world.c node/node.c
-	${CC} ${CFLAGS} -o $@ check/tun_netns.c tun/tun.c \
-		math/math.c world/world.c node/node.c
+check/concord_two: check/concord_two.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-${TUN_DROP}: check/tun_drop.c tun/tun.c math/math.c \
-		world/world.c node/node.c
-	${CC} ${CFLAGS} -o $@ check/tun_drop.c tun/tun.c \
-		math/math.c world/world.c node/node.c
+check: check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop
+	./check/heap_test
+	./check/node_test
+	./check/world_test
+	./check/determinism
+	./check/mcast_test
+	./check/tun_netns
+	./check/tun_drop
 
-${CABLE}: check/cable.c sim/sim.c tun/tun.c math/math.c \
-		world/world.c node/node.c shared/context.c \
-		heap/heap.c rng/rng.c
-	${CC} ${CFLAGS} -o $@ check/cable.c sim/sim.c tun/tun.c \
-		math/math.c world/world.c node/node.c \
-		shared/context.c heap/heap.c rng/rng.c
-
-${MCAST}: check/mcast.c sim/sim.c tun/tun.c math/math.c \
-		world/world.c node/node.c shared/context.c \
-		heap/heap.c rng/rng.c
-	${CC} ${CFLAGS} -o $@ check/mcast.c sim/sim.c tun/tun.c \
-		math/math.c world/world.c node/node.c \
-		shared/context.c heap/heap.c rng/rng.c
-
-${CONCORD_TWO}: check/concord_two.c sim/sim.c tun/tun.c math/math.c \
-		world/world.c node/node.c shared/context.c \
-		heap/heap.c rng/rng.c
-	${CC} ${CFLAGS} -o $@ check/concord_two.c sim/sim.c tun/tun.c \
-		math/math.c world/world.c node/node.c \
-		shared/context.c heap/heap.c rng/rng.c
-
-check: ${TESTS}
-	./${HEAP_TEST}
-	./${NODE_TEST}
-	./${WORLD_TEST}
-	./${DET_TEST}
-	./${MCAST_TEST}
-	./${TUN_NETNS}
-	./${TUN_DROP}
-
-check-concord: ${CONCORD_TWO}
-	sudo ./${CONCORD_TWO}
+check-full: check check/concord_two
+	$(MAKE) concord
+	sudo ./check/concord_two
 
 concord:
-	git -C deps/concord pull --ff-only || \
-		git clone https://github.com/podomy/concord.git deps/concord
-	cd deps/concord && go build -o ${CURDIR}/concord .
+	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
+	cd deps/concord && go build -o $(CURDIR)/concord .
 
 clean:
-	rm -f ${PROG} ${TESTS} ${CABLE} ${MCAST} ${CONCORD_TWO}
+	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two
+
+.PHONY: all check check-full clean concord
