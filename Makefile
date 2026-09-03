@@ -23,7 +23,7 @@ TUN_DROP =	check/tun_drop
 TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
 	${MCAST_TEST} ${TUN_NETNS} ${TUN_DROP}
 
-.PHONY: all clean check
+.PHONY: all clean check concord
 
 all: ${PROG}
 
@@ -66,6 +66,11 @@ check: ${TESTS}
 	./${MCAST_TEST}
 	./${TUN_NETNS}
 	./${TUN_DROP}
+
+concord:
+	git -C deps/concord pull --ff-only || \
+		git clone https://github.com/podomy/concord.git deps/concord
+	cd deps/concord && go build -o ${CURDIR}/concord .
 
 clean:
 	rm -f ${PROG} ${TESTS}

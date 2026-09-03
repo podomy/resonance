@@ -215,8 +215,7 @@ static bool spawn_children(pid_t pids[NODES], int* logfds) {
             close(pipedes[0]);
             close(pipedes[1]);
 
-            execlp("/home/neil/Documents/resonance/concord",
-                    "concord", (char*)NULL);
+            execl("./concord", "concord", (char*)NULL);
             _exit(127);
         }
 

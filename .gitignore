@@ -1,6 +1,7 @@
 .zed/
 resonance
 concord
+deps/
 certs/
 check/heap_test
 check/determinism
@@ -9,5 +10,7 @@ check/world_test
 check/mcast_test
 check/tun_netns
 check/tun_drop
+check/cable
+check/mcast
 *.o
 .cache/

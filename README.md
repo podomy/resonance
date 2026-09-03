@@ -13,6 +13,7 @@ primarily made for [Concord](https://github.com/podomy/concord) to create a flyw
 
 ```sh
 make          # build ./resonance
+make concord  # fetch Concord from GitHub and rebuild if new
 make check    # build and run all checks
 make clean    # remove binaries and test artifacts
 ```
