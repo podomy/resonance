@@ -73,9 +73,13 @@ static bool tuns_open(int fds[NODES]) {
 }
 
 // nodes_add registers simulated nodes.
+// Tun IPs are underlay NICs. They must not use Concord's
+// overlay 10.0.0.0/16 (cn0 / WireGuard). That prefix is
+// local on every node; Join would hit cn0, not the peer.
 static bool nodes_add(Context* ctx, TunMap* map,
                       int fds[NODES]) {
-    uint8_t ips[NODES][4] = {{10, 0, 0, 1}, {10, 0, 0, 2}};
+    uint8_t ips[NODES][4] = {{192, 168, 100, 1},
+                             {192, 168, 100, 2}};
     uint64_t ids[NODES];
     int i;
 
@@ -89,9 +93,10 @@ static bool nodes_add(Context* ctx, TunMap* map,
     return (true);
 }
 
-// addrs_up assigns IPs and brings links up.
+// addrs_up assigns underlay IPs and brings links up.
+// 192.168.100.0/24 is disjoint from overlay 10.0.0.0/16.
 static bool addrs_up(void) {
-    if (!run("ip addr add 10.0.0.1/24 dev tun0"))
+    if (!run("ip addr add 192.168.100.1/24 dev tun0"))
         return (false);
 
     if (!run("ip link set tun0 up"))
@@ -109,7 +114,7 @@ static bool addrs_up(void) {
         return (false);
 
     if (!run("ip netns exec net_namespace_nodeb ip addr "
-             "add 10.0.0.2/24 dev tun1"))
+             "add 192.168.100.2/24 dev tun1"))
         return (false);
 
     if (!run("ip netns exec net_namespace_nodeb ip link "
@@ -184,7 +189,7 @@ static bool spawn_children(pid_t pids[NODES], int* logfds) {
             "mkdir -p %s/concord && uuid=$(cat "
             "/proc/sys/kernel/random/uuid) && printf "
             "'{\"id\":\"%%s\",\"memberlist_address\":\"0.0."
-            "0.0:7946\",\"advertise_address\":\"10.0.0.%"
+            "0.0:7946\",\"advertise_address\":\"192.168.100.%"
             "d\"}' \"$uuid\" > %s/concord/config.json",
             dir, i + 1, dir);
         if (!run(cmd))
