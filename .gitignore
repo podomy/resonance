@@ -12,5 +12,6 @@ check/tun_netns
 check/tun_drop
 check/cable
 check/mcast
+check/concord_two
 *.o
 .cache/

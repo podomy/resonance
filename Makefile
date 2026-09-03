@@ -2,7 +2,7 @@ CC ?= cc
 CFLAGS += -std=c11 -Wall -Wextra -Werror -O2
 
 PROG =	resonance
-SRCS =	main.c \
+SRCS =	main.c sim/sim.c \
 	heap/heap.c \
 	rng/rng.c \
 	shared/context.c \
@@ -19,11 +19,14 @@ DET_TEST =	check/determinism
 MCAST_TEST =	check/mcast_test
 TUN_NETNS =	check/tun_netns
 TUN_DROP =	check/tun_drop
+CABLE =		check/cable
+MCAST =		check/mcast
+CONCORD_TWO =	check/concord_two
 
 TESTS =	${HEAP_TEST} ${NODE_TEST} ${WORLD_TEST} ${DET_TEST} \
 	${MCAST_TEST} ${TUN_NETNS} ${TUN_DROP}
 
-.PHONY: all clean check concord
+.PHONY: all clean check check-concord concord
 
 all: ${PROG}
 
@@ -58,6 +61,27 @@ ${TUN_DROP}: check/tun_drop.c tun/tun.c math/math.c \
 	${CC} ${CFLAGS} -o $@ check/tun_drop.c tun/tun.c \
 		math/math.c world/world.c node/node.c
 
+${CABLE}: check/cable.c sim/sim.c tun/tun.c math/math.c \
+		world/world.c node/node.c shared/context.c \
+		heap/heap.c rng/rng.c
+	${CC} ${CFLAGS} -o $@ check/cable.c sim/sim.c tun/tun.c \
+		math/math.c world/world.c node/node.c \
+		shared/context.c heap/heap.c rng/rng.c
+
+${MCAST}: check/mcast.c sim/sim.c tun/tun.c math/math.c \
+		world/world.c node/node.c shared/context.c \
+		heap/heap.c rng/rng.c
+	${CC} ${CFLAGS} -o $@ check/mcast.c sim/sim.c tun/tun.c \
+		math/math.c world/world.c node/node.c \
+		shared/context.c heap/heap.c rng/rng.c
+
+${CONCORD_TWO}: check/concord_two.c sim/sim.c tun/tun.c math/math.c \
+		world/world.c node/node.c shared/context.c \
+		heap/heap.c rng/rng.c
+	${CC} ${CFLAGS} -o $@ check/concord_two.c sim/sim.c tun/tun.c \
+		math/math.c world/world.c node/node.c \
+		shared/context.c heap/heap.c rng/rng.c
+
 check: ${TESTS}
 	./${HEAP_TEST}
 	./${NODE_TEST}
@@ -67,10 +91,13 @@ check: ${TESTS}
 	./${TUN_NETNS}
 	./${TUN_DROP}
 
+check-concord: ${CONCORD_TWO}
+	sudo ./${CONCORD_TWO}
+
 concord:
 	git -C deps/concord pull --ff-only || \
 		git clone https://github.com/podomy/concord.git deps/concord
 	cd deps/concord && go build -o ${CURDIR}/concord .
 
 clean:
-	rm -f ${PROG} ${TESTS}
+	rm -f ${PROG} ${TESTS} ${CABLE} ${MCAST} ${CONCORD_TWO}
