@@ -23,6 +23,8 @@ make clean              # remove binaries and test artifacts
 
 Discuss your change with the engineering team at [contact@podomy.com](mailto:contact@podomy.com) before opening a PR in order not to waste anybody's effort or time.
 
+Announcements and articles are shared via our newsletter at [podomy.com](https://podomy.com).
+
 - [Commit message format](./COMMITS)
 - [Contributor license agreement](./CLA)
 - [Contributing](./CONTRIBUTING)
