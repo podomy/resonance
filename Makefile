@@ -39,6 +39,9 @@ check/mcast: check/mcast.c $(SIM_SRCS)
 check/concord_two: check/concord_two.c $(SIM_SRCS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+check/concord_partition: check/concord_partition.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop
 	./check/heap_test
 	./check/node_test
@@ -48,15 +51,16 @@ check: check/heap_test check/node_test check/world_test check/determinism check/
 	./check/tun_netns
 	./check/tun_drop
 
-check-full: check check/concord_two
+check-full: check check/concord_two check/concord_partition
 	$(MAKE) concord
 	sudo ./check/concord_two
+	sudo ./check/concord_partition
 
 concord:
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
 	cd deps/concord && go build -o $(CURDIR)/concord .
 
 clean:
-	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two
+	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition
 
 .PHONY: all check check-full clean concord

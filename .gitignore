@@ -13,5 +13,6 @@ check/tun_drop
 check/cable
 check/mcast
 check/concord_two
+check/concord_partition
 *.o
 .cache/

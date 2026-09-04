@@ -7,94 +7,145 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
-// pump_until forwards tun traffic and logs.
-// Partition demo: after peers 2, drop forwarding to trigger
-// suspect/failed/peer.lost, then restore and expect peer.seen again.
-static void pump_until(TunMap *map, MediumGrid *grid,
-                       RadioParams *radio, NodeList *nodes,
-                       int fds[SIM_NODES], pid_t pids[SIM_NODES],
-                       int *logfds) {
-    struct pollfd p[2 * SIM_NODES];
-    int i, status;
-    int alive;
-    int elapsed = 0;
-    int drop = 0;
-    int seen2 = 0;
+#define HOLD_UP 8
+#define HOLD_DOWN 10
 
+// drain_tun pumps one packet, or discards it if drop.
+static void drain_tun(TunMap* map, MediumGrid* grid,
+                      RadioParams* radio, NodeList* nodes,
+                      int fd, int drop) {
+    char junk[2048];
+
+    if (!drop) {
+        tun_pump_fd(map, fd, grid, radio, nodes);
+        return;
+    }
+    read(fd, junk, sizeof(junk));
+}
+
+// drain_log prints one child line. Sets seen2 on peers:2.
+static void drain_log(int i, int fd, int* seen2) {
+    char buf[2048];
+    ssize_t n;
+
+    n = read(fd, buf, sizeof(buf) - 1);
+    if (n <= 0)
+        return;
+    buf[n] = '\0';
+    printf("\033[%dm[node %d]\033[0m %s", 36 + i, i, buf);
+    if (strstr(buf, "\"peers\":2") != NULL)
+        *seen2 = 1;
+}
+
+// children_alive is 1 if any child still runs.
+static int children_alive(pid_t* pids) {
+    int i;
+
+    for (i = 0; i < SIM_NODES; i++) {
+        if (waitpid(pids[i], NULL, WNOHANG) == 0)
+            return (1);
+    }
+    return (0);
+}
+
+// partition_tick cuts the cable HOLD_UP after mesh-up,
+// then restores it HOLD_DOWN later. One cycle only.
+static void partition_tick(int* drop, int* seen2,
+                           time_t* t0, int* restored) {
+    time_t now;
+
+    now = time(NULL);
+    if (*restored)
+        return;
+    if (*drop) {
+        if (now - *t0 < HOLD_DOWN)
+            return;
+        printf("resonance: partition end\n");
+        *drop = 0;
+        *seen2 = 0;
+        *t0 = now;
+        *restored = 1;
+        return;
+    }
+    if (!*seen2)
+        return;
+    if (*t0 == 0) {
+        *t0 = now;
+        return;
+    }
+    if (now - *t0 < HOLD_UP)
+        return;
+    printf("resonance: partition start\n");
+    *drop = 1;
+    *seen2 = 0;
+    *t0 = now;
+}
+
+// pump_until forwards tun and logs until children exit.
+static void pump_until(TunMap* map, MediumGrid* grid,
+                       RadioParams* radio, NodeList* nodes,
+                       int* fds, pid_t* pids, int* logfds) {
+    struct pollfd p[2 * SIM_NODES];
+    int i, drop, seen2, restored, done;
+    time_t t0;
+
+    drop = 0;
+    seen2 = 0;
+    restored = 0;
+    done = 0;
+    t0 = 0;
     for (i = 0; i < SIM_NODES; i++) {
         p[i].fd = fds[i];
         p[i].events = POLLIN;
+        p[SIM_NODES + i].fd = logfds[i];
+        p[SIM_NODES + i].events = POLLIN;
     }
-    for (i = SIM_NODES; i < 2 * SIM_NODES; i++) {
-        p[i].fd = logfds[i - SIM_NODES];
-        p[i].events = POLLIN;
-    }
-
     do {
         if (poll(p, 2 * SIM_NODES, 100) > 0) {
             for (i = 0; i < SIM_NODES; i++) {
-                if (p[i].revents & POLLIN) {
-                    if (!drop)
-                        tun_pump_fd(map, fds[i], grid, radio,
-                                    nodes);
-                    else {
-                        char tmp[2048];
-                        read(fds[i], tmp, sizeof(tmp));
-                    }
-                }
-            }
-            for (i = 0; i < SIM_NODES; i++) {
-                if (!(p[SIM_NODES + i].revents & POLLIN))
-                    continue;
-                char buf[2048];
-                ssize_t n;
-                n = read(logfds[i], buf, sizeof(buf) - 1);
-                if (n > 0) {
-                    buf[n] = '\0';
-                    printf("\033[%dm[node %d]\033[0m %s",
-                           36 + i, i, buf);
-                    if (strstr(buf, "\"peers\":2") != NULL ||
-                        strstr(buf, "\"peers\": 2") != NULL)
-                        seen2 = 1;
-                }
+                if (p[i].revents & POLLIN)
+                    drain_tun(map, grid, radio, nodes,
+                              fds[i], drop);
+                if (p[SIM_NODES + i].revents & POLLIN)
+                    drain_log(i, logfds[i], &seen2);
             }
         }
-        // Partition after first peers 2 seen.
-        if (seen2 && !drop && elapsed > 8000) {
-            printf("resonance: partition start (drop)\n");
-            drop = 1;
-            elapsed = 0;
-            seen2 = 0;
-        } else if (drop && elapsed > 10000) {
-            printf("resonance: partition end (restore)\n");
-            drop = 0;
-            elapsed = 0;
-        }
-        alive = 0;
-        for (i = 0; i < SIM_NODES; i++) {
-            if (waitpid(pids[i], &status, WNOHANG) == 0)
-                alive = 1;
-        }
-        elapsed += 100;
-    } while (alive);
+        partition_tick(&drop, &seen2, &t0, &restored);
+        if (restored && seen2)
+            done = 1;
+        if (restored && t0 != 0 &&
+            time(NULL) - t0 >= HOLD_UP)
+            done = 1;
+    } while (!done && children_alive(pids));
+}
+
+// reap kills children and closes fds.
+static void reap(pid_t* pids, int* fds, int* logfds) {
+    int i;
+
+    for (i = 0; i < SIM_NODES; i++) {
+        kill(pids[i], SIGTERM);
+        waitpid(pids[i], NULL, 0);
+        close(fds[i]);
+        close(logfds[i]);
+    }
 }
 
 int main(void) {
     Context ctx;
-    TunMap map = {0};
-    int fds[SIM_NODES];
-    int logfds[SIM_NODES];
+    TunMap map;
+    int fds[SIM_NODES], logfds[SIM_NODES];
     pid_t pids[SIM_NODES];
-    int i;
 
-    if (!context_init(&ctx, 32, 1)) {
-        fprintf(stderr, "context_init failed\n");
+    memset(&map, 0, sizeof(map));
+    if (!context_init(&ctx, 32, 1))
         return (1);
-    }
     if (!sim_netns_setup())
         return (1);
     if (!sim_tuns_open(fds))
@@ -105,19 +156,11 @@ int main(void) {
         return (1);
     if (!sim_spawn_concord(pids, logfds))
         return (1);
-
     printf("resonance: %zu nodes, %zu tuns ready\n",
            ctx.nodes.len, map.n);
-    printf("resonance: partition demo - peers 2, drop, reunion\n");
     pump_until(&map, &ctx.grid, &ctx.radio, &ctx.nodes, fds,
                pids, logfds);
-
-    for (i = 0; i < SIM_NODES; i++) {
-        kill(pids[i], SIGTERM);
-        waitpid(pids[i], NULL, 0);
-        close(fds[i]);
-        close(logfds[i]);
-    }
+    reap(pids, fds, logfds);
     context_free(&ctx);
     system("ip netns del net_namespace_nodeb");
     system("rm -rf /tmp/resonance");
