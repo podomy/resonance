@@ -12,30 +12,31 @@
 #include <time.h>
 #include <unistd.h>
 
-#define N 2
+#define N 3
+#define ISOLATE 2
 #define HOLD_UP 8
 #define HOLD_DOWN 10
 #define DEADLINE 90
 
-// concord_partition asserts mesh, drop, reunion.
-// Same underlay 192.168.100.1/2 as concord_two.
+// concord_three asserts 3-node mesh, isolate 2, reunion.
+// Underlay 192.168.100.1/2/3, overlay 10.0.0.0/16.
 
 // has reports needle in hay.
 static int has(const char* hay, const char* needle) {
     return (strstr(hay, needle) != NULL);
 }
 
-// drain_tun pumps one packet, or discards it if drop.
+// drain_tun pumps one packet, or discards if isolated.
 static void drain_tun(TunMap* map, MediumGrid* grid,
                       RadioParams* radio, NodeList* nodes,
-                      int fd, int drop) {
+                      int fd, int i, int drop) {
     char junk[2048];
 
-    if (!drop) {
-        tun_pump_fd(map, fd, grid, radio, nodes);
+    if (drop && i == ISOLATE) {
+        read(fd, junk, sizeof(junk));
         return;
     }
-    read(fd, junk, sizeof(junk));
+    tun_pump_fd(map, fd, grid, radio, nodes);
 }
 
 int main(void) {
@@ -44,11 +45,11 @@ int main(void) {
     struct pollfd p[2 * N];
     int fds[N], logfds[N];
     pid_t pids[N];
-    int i, drop, seen2, lost, restored, ok;
+    int i, drop, seen3, lost, restored;
     time_t t0, start;
 
     if (access("./concord", X_OK) != 0) {
-        printf("concord_partition: skip no ./concord\n");
+        printf("concord_three: skip no ./concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));
@@ -57,7 +58,7 @@ int main(void) {
     if (!sim_netns_setup(N))
         return (1);
     if (!sim_tuns_open(fds, N)) {
-        printf("concord_partition: skip (%s)\n",
+        printf("concord_three: skip (%s)\n",
                strerror(errno));
         return (0);
     }
@@ -76,7 +77,7 @@ int main(void) {
     }
 
     drop = 0;
-    seen2 = 0;
+    seen3 = 0;
     lost = 0;
     restored = 0;
     t0 = 0;
@@ -86,7 +87,7 @@ int main(void) {
             for (i = 0; i < N; i++) {
                 if (p[i].revents & POLLIN)
                     drain_tun(&map, &ctx.grid, &ctx.radio,
-                              &ctx.nodes, fds[i], drop);
+                              &ctx.nodes, fds[i], i, drop);
                 if (!(p[N + i].revents & POLLIN))
                     continue;
                 char buf[2048];
@@ -96,15 +97,15 @@ int main(void) {
                 if (n <= 0)
                     continue;
                 buf[n] = '\0';
-                // Just look for strings peers:2 and
+                // Just look for strings peers:3 and
                 // peer.lost.
-                if (has(buf, "\"peers\":2"))
-                    seen2 = 1;
+                if (has(buf, "\"peers\":3"))
+                    seen3 = 1;
                 if (has(buf, "peer.lost"))
                     lost = 1;
             }
         }
-        if (!drop && seen2) {
+        if (!drop && seen3) {
             if (t0 == 0)
                 t0 = time(NULL);
             else if (time(NULL) - t0 >= HOLD_UP) {
@@ -115,17 +116,10 @@ int main(void) {
             if (time(NULL) - t0 >= HOLD_DOWN) {
                 drop = 0;
                 restored = 1;
-                seen2 = 0;
+                seen3 = 0;
                 t0 = time(NULL);
             }
-        } else if (restored && seen2)
-            break;
-        ok = 0;
-        for (i = 0; i < N; i++) {
-            if (waitpid(pids[i], NULL, WNOHANG) == 0)
-                ok = 1;
-        }
-        if (!ok)
+        } else if (restored && seen3)
             break;
     }
 
@@ -139,11 +133,11 @@ int main(void) {
     sim_netns_teardown(N);
     system("rm -rf /tmp/resonance");
 
-    if (!restored || !lost || !seen2) {
+    if (!restored || !lost || !seen3) {
         fprintf(stderr,
-                "concord_partition: fail restored=%d "
-                "lost=%d seen2=%d\n",
-                restored, lost, seen2);
+                "concord_three: fail restored=%d lost=%d "
+                "seen3=%d\n",
+                restored, lost, seen3);
         return (1);
     }
     return (0);

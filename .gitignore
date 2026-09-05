@@ -14,5 +14,7 @@ check/cable
 check/mcast
 check/concord_two
 check/concord_partition
+check/concord_three
+check/concord_workload
 *.o
 .cache/

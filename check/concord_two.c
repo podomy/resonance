@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define N 2
+
 // concord_two asserts two-node mesh.
 // Underlay 192.168.100.1/2 is disjoint from
 // overlay 10.0.0.0/16. Both peer.seen and peers 2 within
@@ -29,54 +31,54 @@ int main(void) {
 
     Context ctx;
     TunMap map = {0};
-    int fds[SIM_NODES];
-    int logfds[SIM_NODES];
-    pid_t pids[SIM_NODES];
+    int fds[N];
+    int logfds[N];
+    pid_t pids[N];
     int i;
 
     if (!context_init(&ctx, 32, 1)) {
         fprintf(stderr, "context_init failed\n");
         return (1);
     }
-    if (!sim_netns_setup())
+    if (!sim_netns_setup(N))
         return (1);
-    if (!sim_tuns_open(fds)) {
+    if (!sim_tuns_open(fds, N)) {
         printf("concord_two: skip (%s)\n", strerror(errno));
         return (0);
     }
-    if (!sim_nodes_add(&ctx, &map, fds))
+    if (!sim_nodes_add(&ctx, &map, fds, N))
         return (1);
-    if (!sim_addrs_up())
+    if (!sim_addrs_up(N))
         return (1);
-    if (!sim_spawn_concord(pids, logfds))
+    if (!sim_spawn_concord(pids, logfds, N))
         return (1);
 
-    struct pollfd p[2 * SIM_NODES];
-    for (i = 0; i < SIM_NODES; i++) {
+    struct pollfd p[2 * N];
+    for (i = 0; i < N; i++) {
         p[i].fd = fds[i];
         p[i].events = POLLIN;
     }
-    for (i = SIM_NODES; i < 2 * SIM_NODES; i++) {
-        p[i].fd = logfds[i - SIM_NODES];
+    for (i = N; i < 2 * N; i++) {
+        p[i].fd = logfds[i - N];
         p[i].events = POLLIN;
     }
 
-    int seen[SIM_NODES] = {0};
-    int peers2[SIM_NODES] = {0};
+    int seen[N] = {0};
+    int peers2[N] = {0};
     int deadline_ms = 45000;
     int elapsed = 0;
 
     while (elapsed < deadline_ms) {
-        if (poll(p, 2 * SIM_NODES, 100) > 0) {
-            for (i = 0; i < SIM_NODES; i++) {
+        if (poll(p, 2 * N, 100) > 0) {
+            for (i = 0; i < N; i++) {
                 if (p[i].revents & POLLIN)
                     tun_pump_fd(&map, fds[i], &ctx.grid,
                                 &ctx.radio, &ctx.nodes);
             }
             // Take logs from each concord pipe into buf and
             // check.
-            for (i = 0; i < SIM_NODES; i++) {
-                if (!(p[SIM_NODES + i].revents & POLLIN))
+            for (i = 0; i < N; i++) {
+                if (!(p[N + i].revents & POLLIN))
                     continue;
                 char buf[2048];
                 ssize_t n =
@@ -94,7 +96,7 @@ int main(void) {
             }
         }
         int ok = 1;
-        for (i = 0; i < SIM_NODES; i++) {
+        for (i = 0; i < N; i++) {
             if (!seen[i] || !peers2[i])
                 ok = 0;
         }
@@ -102,7 +104,7 @@ int main(void) {
             break;
         // Check children still alive.
         int alive = 0;
-        for (i = 0; i < SIM_NODES; i++) {
+        for (i = 0; i < N; i++) {
             if (waitpid(pids[i], NULL, WNOHANG) == 0)
                 alive = 1;
         }
@@ -111,18 +113,18 @@ int main(void) {
         elapsed += 100;
     }
 
-    for (i = 0; i < SIM_NODES; i++) {
+    for (i = 0; i < N; i++) {
         kill(pids[i], SIGTERM);
         waitpid(pids[i], NULL, 0);
         close(fds[i]);
         close(logfds[i]);
     }
     context_free(&ctx);
-    system("ip netns del net_namespace_nodeb");
+    sim_netns_teardown(N);
     system("rm -rf /tmp/resonance");
 
     int ok = 1;
-    for (i = 0; i < SIM_NODES; i++) {
+    for (i = 0; i < N; i++) {
         if (!seen[i] || !peers2[i])
             ok = 0;
     }
@@ -130,8 +132,7 @@ int main(void) {
         fprintf(
             stderr,
             "concord_two: timeout peers %d/%d seen %d/%d\n",
-            peers2[0] + peers2[1], SIM_NODES,
-            seen[0] + seen[1], SIM_NODES);
+            peers2[0] + peers2[1], N, seen[0] + seen[1], N);
         return (1);
     }
     return (0);
