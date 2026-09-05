@@ -48,6 +48,9 @@ check/concord_three: check/concord_three.c $(SIM_SRCS)
 check/concord_workload: check/concord_workload.c $(SIM_SRCS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+check/concord_restart: check/concord_restart.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop
 	./check/heap_test
 	./check/node_test
@@ -57,18 +60,19 @@ check: check/heap_test check/node_test check/world_test check/determinism check/
 	./check/tun_netns
 	./check/tun_drop
 
-check-full: check check/concord_two check/concord_partition check/concord_three check/concord_workload
+check-full: check check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart
 	$(MAKE) concord
 	sudo ./check/concord_two
 	sudo ./check/concord_partition
 	sudo ./check/concord_three
 	sudo ./check/concord_workload
+	sudo ./check/concord_restart
 
 concord:
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
 	cd deps/concord && go build -o $(CURDIR)/concord .
 
 clean:
-	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition check/concord_three check/concord_workload
+	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart
 
 .PHONY: all check check-full clean concord

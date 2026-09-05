@@ -197,6 +197,88 @@ bool sim_addrs_up(int n) {
     return (true);
 }
 
+// spawn_one seeds node i and forks it. Stores pid and
+// logfd. Parent config root must exist.
+static bool spawn_one(pid_t* pid, int* logfd, int i) {
+    int pipedes[2];
+
+    if (pipe(pipedes) < 0) {
+        return (false);
+    }
+
+    // Per-node XDG_CONFIG_HOME.
+    char dir[64];
+    snprintf(dir, sizeof(dir), "/tmp/resonance/node%d", i);
+    if (mkdir(dir, 0700) != 0 && errno != EEXIST)
+        return (false);
+
+    // Seed CA from repo certs/ into
+    // $XDG_CONFIG_HOME/concord/certs.
+    // Concord requires ca.crt/ca.key.
+    char certs[128];
+    snprintf(certs, sizeof(certs), "%s/concord/certs", dir);
+    char cmd[512];
+
+    snprintf(cmd, sizeof(cmd), "mkdir -p %s", certs);
+    if (!run(cmd))
+        return (false);
+
+    snprintf(cmd, sizeof(cmd),
+             "cp certs/ca.crt %s/ 2>/dev/null", certs);
+    if (!run(cmd))
+        return (false);
+
+    snprintf(cmd, sizeof(cmd),
+             "cp certs/ca.key %s/ 2>/dev/null", certs);
+    if (!run(cmd))
+        return false;
+
+    snprintf(
+        cmd, sizeof(cmd),
+        "mkdir -p %s/concord && uuid=$(cat "
+        "/proc/sys/kernel/random/uuid) && printf "
+        "'{\"id\":\"%%s\",\"memberlist_address\":\"0.0."
+        "0.0:7946\",\"advertise_address\":\"192.168."
+        "100.%d\"}' \"$uuid\" > %s/concord/config.json",
+        dir, i + 1, dir);
+    if (!run(cmd))
+        return (false);
+
+    *pid = fork();
+
+    if (*pid < 0)
+        return (false);
+    if (*pid == 0) {
+        setenv("XDG_CONFIG_HOME", dir, 1);
+        if (i > 0) {
+            char path[64];
+            int nsfd;
+
+            ns_path(path, sizeof(path), i);
+            nsfd = open(path, O_RDONLY);
+            if (nsfd >= 0) {
+                setns(nsfd, CLONE_NEWNET);
+                close(nsfd);
+            }
+        }
+
+        // Pipe stdout, stderr to write end.
+        dup2(pipedes[1], 1);
+        dup2(pipedes[1], 2);
+
+        // Close pipe from fd table.
+        close(pipedes[0]);
+        close(pipedes[1]);
+
+        execl("./concord", "concord", (char*)NULL);
+        _exit(127);
+    }
+
+    close(pipedes[1]);
+    *logfd = pipedes[0];
+    return (true);
+}
+
 // sim_spawn_concord forks concord nodes with isolated
 // XDG_CONFIG_HOME.
 bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
@@ -216,87 +298,21 @@ bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
     }
 
     for (i = 0; i < n; i++) {
-        pid_t pid;
-
-        int pipedes[2];
-        if (pipe(pipedes) < 0) {
+        if (!spawn_one(&pids[i], &logfds[i], i))
             return (false);
-        }
-
-        // Per-node XDG_CONFIG_HOME.
-        char dir[64];
-        snprintf(dir, sizeof(dir), "/tmp/resonance/node%d",
-                 i);
-        if (mkdir(dir, 0700) != 0 && errno != EEXIST)
-            return (false);
-
-        // Seed CA from repo certs/ into
-        // $XDG_CONFIG_HOME/concord/certs.
-        // Concord requires ca.crt/ca.key.
-        char certs[128];
-        snprintf(certs, sizeof(certs), "%s/concord/certs",
-                 dir);
-        char cmd[512];
-
-        snprintf(cmd, sizeof(cmd), "mkdir -p %s", certs);
-        if (!run(cmd))
-            return (false);
-
-        snprintf(cmd, sizeof(cmd),
-                 "cp certs/ca.crt %s/ 2>/dev/null", certs);
-        if (!run(cmd))
-            return (false);
-
-        snprintf(cmd, sizeof(cmd),
-                 "cp certs/ca.key %s/ 2>/dev/null", certs);
-        if (!run(cmd))
-            return false;
-
-        snprintf(
-            cmd, sizeof(cmd),
-            "mkdir -p %s/concord && uuid=$(cat "
-            "/proc/sys/kernel/random/uuid) && printf "
-            "'{\"id\":\"%%s\",\"memberlist_address\":\"0.0."
-            "0.0:7946\",\"advertise_address\":\"192.168."
-            "100.%"
-            "d\"}' \"$uuid\" > %s/concord/config.json",
-            dir, i + 1, dir);
-        if (!run(cmd))
-            return (false);
-
-        pid = fork();
-
-        if (pid < 0)
-            return (false);
-        if (pid == 0) {
-            setenv("XDG_CONFIG_HOME", dir, 1);
-            if (i > 0) {
-                char path[64];
-                int nsfd;
-
-                ns_path(path, sizeof(path), i);
-                nsfd = open(path, O_RDONLY);
-                if (nsfd >= 0) {
-                    setns(nsfd, CLONE_NEWNET);
-                    close(nsfd);
-                }
-            }
-
-            // Pipe stdout, stderr to write end.
-            dup2(pipedes[1], 1);
-            dup2(pipedes[1], 2);
-
-            // Close pipe from fd table.
-            close(pipedes[0]);
-            close(pipedes[1]);
-
-            execl("./concord", "concord", (char*)NULL);
-            _exit(127);
-        }
-
-        pids[i] = pid;
-        close(pipedes[1]);
-        logfds[i] = pipedes[0];
     }
     return (true);
+}
+
+// sim_restart_concord wipes node i for a fresh identity
+// and forks it again. Caller must have killed and reaped
+// the old child and closed its logfd.
+bool sim_restart_concord(pid_t* pids, int* logfds, int i) {
+    char dir[64], cmd[128];
+
+    snprintf(dir, sizeof(dir), "/tmp/resonance/node%d", i);
+    snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
+    if (!run(cmd))
+        return (false);
+    return (spawn_one(&pids[i], &logfds[i], i));
 }

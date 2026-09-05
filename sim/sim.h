@@ -29,4 +29,9 @@ bool sim_addrs_up(int n);
 // XDG_CONFIG_HOME.
 bool sim_spawn_concord(pid_t* pids, int* logfds, int n);
 
+// sim_restart_concord wipes node i for a fresh identity
+// and forks it again. Caller must have killed and reaped
+// the old child and closed its logfd.
+bool sim_restart_concord(pid_t* pids, int* logfds, int i);
+
 #endif

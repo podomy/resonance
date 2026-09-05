@@ -16,5 +16,6 @@ check/concord_two
 check/concord_partition
 check/concord_three
 check/concord_workload
+check/concord_restart
 *.o
 .cache/
