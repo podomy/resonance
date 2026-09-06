@@ -19,5 +19,6 @@ check/concord_workload
 check/concord_restart
 check/concord_mobile
 check/concord_divergent
+check/concord_killmidsync
 *.o
 .cache/
