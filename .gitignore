@@ -20,5 +20,7 @@ check/concord_restart
 check/concord_mobile
 check/concord_divergent
 check/concord_killmidsync
+check/concord_stop
+check/concord_flap
 *.o
 .cache/
