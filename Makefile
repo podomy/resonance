@@ -66,6 +66,12 @@ check/concord_stop: check/concord_stop.c $(SIM_SRCS)
 check/concord_flap: check/concord_flap.c $(SIM_SRCS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+check/concord_killisolated: check/concord_killisolated.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+check/concord_splitbrain: check/concord_splitbrain.c $(SIM_SRCS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop
 	./check/heap_test
 	./check/node_test
@@ -75,7 +81,7 @@ check: check/heap_test check/node_test check/world_test check/determinism check/
 	./check/tun_netns
 	./check/tun_drop
 
-check-full: check check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap
+check-full: check check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap check/concord_killisolated check/concord_splitbrain
 	$(MAKE) concord
 	sudo ./check/concord_two
 	sudo ./check/concord_partition
@@ -87,12 +93,14 @@ check-full: check check/concord_two check/concord_partition check/concord_three 
 	sudo ./check/concord_killmidsync
 	sudo ./check/concord_stop
 	sudo ./check/concord_flap
+	sudo ./check/concord_killisolated
+	sudo ./check/concord_splitbrain
 
 concord:
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
 	cd deps/concord && go build -o $(CURDIR)/concord .
 
 clean:
-	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap
+	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap check/concord_killisolated check/concord_splitbrain
 
 .PHONY: all check check-full clean concord

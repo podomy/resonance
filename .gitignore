@@ -22,5 +22,7 @@ check/concord_divergent
 check/concord_killmidsync
 check/concord_stop
 check/concord_flap
+check/concord_killisolated
+check/concord_splitbrain
 *.o
 .cache/
