@@ -24,5 +24,6 @@ check/concord_stop
 check/concord_flap
 check/concord_killisolated
 check/concord_splitbrain
+check/concord_duel
 *.o
 .cache/
