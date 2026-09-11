@@ -375,6 +375,7 @@ int main(void) {
             break;
     }
 
+    duel = count_assignees(wid);
     for (i = 0; i < N; i++) {
         kill(pids[i], SIGTERM);
         waitpid(pids[i], NULL, 0);
@@ -385,7 +386,6 @@ int main(void) {
     sim_netns_teardown(N);
     system("rm -rf /tmp/resonance");
 
-    duel = count_assignees(wid);
     if (phase != 3 || duel < 2) {
         fprintf(stderr,
                 "concord_duel: fail phase=%d duel=%d "
