@@ -1,0 +1,12 @@
+TODO
+----
+1. Fault richness. The sim wire is all-or-nothing per
+   node. Add clock skew between netns nodes, slow peers
+   (delayed tun pumping per node), and Byzantine peers
+   (a node emitting conflicting journal events). Assert
+   the same convergence post-conditions hold.
+2. Soak. Run the mesh for hours under continuous
+   beating: repeated isolate/restore cycles, rolling
+   SIGKILLs, and steady workload submit/stop churn.
+   Assert no journal divergence, no stuck scheduling,
+   and bounded resource growth at the end.

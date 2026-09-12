@@ -48,7 +48,13 @@ bin/concord_partition: check/concord_partition.c $(SIM_SRCS) | bin
 bin/concord_three: check/concord_three.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_scale: check/concord_scale.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 bin/concord_workload: check/concord_workload.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
+bin/concord_bulk: check/concord_bulk.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
 bin/concord_restart: check/concord_restart.c $(SIM_SRCS) | bin
@@ -66,6 +72,9 @@ bin/concord_killmidsync: check/concord_killmidsync.c $(SIM_SRCS) | bin
 bin/concord_stop: check/concord_stop.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_minority_stop: check/concord_minority_stop.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 bin/concord_flap: check/concord_flap.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -78,6 +87,9 @@ bin/concord_splitbrain: check/concord_splitbrain.c $(SIM_SRCS) | bin
 bin/concord_duel: check/concord_duel.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_failover: check/concord_failover.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
 	./bin/heap_test
 	./bin/node_test
@@ -87,21 +99,25 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_workload bin/concord_restart bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_workload bin/concord_bulk bin/concord_restart bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
 	sudo ./bin/concord_three
+	sudo ./bin/concord_scale
 	sudo ./bin/concord_workload
+	sudo ./bin/concord_bulk
 	sudo ./bin/concord_restart
 	sudo ./bin/concord_mobile
 	sudo ./bin/concord_divergent
 	sudo ./bin/concord_killmidsync
 	sudo ./bin/concord_stop
+	sudo ./bin/concord_minority_stop
 	sudo ./bin/concord_flap
 	sudo ./bin/concord_killisolated
 	sudo ./bin/concord_splitbrain
 	sudo ./bin/concord_duel
+	sudo ./bin/concord_failover
 
 concord: | bin
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord

@@ -15,7 +15,7 @@
 
 #define N 3
 #define HOLD_UP 8
-#define HOLD_SPLIT 20
+#define HOLD_SPLIT 90
 #define DEADLINE 240
 #define MAX_TRIES 3
 #define IMAGE "docker.io/library/nginx:alpine"
@@ -141,6 +141,26 @@ static int assigned_anywhere(const char* wid) {
              wid, NIL_UUID);
     rc = system(cmd);
     return (rc == 0);
+}
+
+// sides_assigned reports 1 when the victim journal
+// and at least one pair journal each hold a non-nil
+// SegmentID for wid: both sides visibly assigned.
+static int sides_assigned(int victim, const char* wid) {
+    char seg[64];
+    int i;
+
+    if (!read_assignment(victim, wid, seg, sizeof(seg)) ||
+        strcmp(seg, NIL_UUID) == 0)
+        return (0);
+    for (i = 0; i < N; i++) {
+        if (i == victim)
+            continue;
+        if (read_assignment(i, wid, seg, sizeof(seg)) &&
+            strcmp(seg, NIL_UUID) != 0)
+            return (1);
+    }
+    return (0);
 }
 
 // elect_victim returns the node with the lowest UUID
@@ -341,11 +361,21 @@ int main(void) {
                     break;
                 }
             }
-        } else if (phase == 2 && hold(&t0, HOLD_SPLIT)) {
-            phase = 3;
-            seen3 = 0;
-            t0 = 0;
-            tcheck = 0;
+        } else if (phase == 2 &&
+                   (tcheck == 0 ||
+                    time(NULL) - tcheck >= 2)) {
+            // Restore once both sides visibly assigned;
+            // the blind timer made this a lottery. The
+            // hold is only a backstop: without real
+            // divergence the verdict still fails.
+            tcheck = time(NULL);
+            if (sides_assigned(victim, wid) ||
+                hold(&t0, HOLD_SPLIT)) {
+                phase = 3;
+                seen3 = 0;
+                t0 = 0;
+                tcheck = 0;
+            }
         } else if (phase == 3 &&
                    (tcheck == 0 ||
                     time(NULL) - tcheck >= 2)) {
