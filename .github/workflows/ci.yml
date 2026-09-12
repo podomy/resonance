@@ -29,7 +29,7 @@ jobs:
         run: |
           mkdir -p dist
           make
-          cp resonance dist/resonance-linux-amd64
+          cp bin/resonance dist/resonance-linux-amd64
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4

@@ -12,10 +12,11 @@ primarily made for [Concord](https://github.com/podomy/concord) to create a flyw
 ### Build and test
 
 ```sh
-make                    # build ./resonance
+make                    # build ./bin/resonance
 make concord            # fetch Concord from GitHub and rebuild if new
 make check              # fast checks, no Concord
-sudo make check-full    # all checks, needs ./concord
+sudo make check-full    # all checks, needs ./bin/concord
+make log                # run demo, tee output to current.log
 make clean              # remove binaries and test artifacts
 ```
 

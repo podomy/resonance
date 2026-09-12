@@ -270,7 +270,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i) {
         close(pipedes[0]);
         close(pipedes[1]);
 
-        execl("./concord", "concord", (char*)NULL);
+        execl("./bin/concord", "concord", (char*)NULL);
         _exit(127);
     }
 

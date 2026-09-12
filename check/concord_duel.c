@@ -49,7 +49,7 @@ static int submit_workload(int node, char* out, size_t n) {
 
     snprintf(cmd, sizeof(cmd),
              "XDG_CONFIG_HOME=/tmp/resonance/node%d "
-             "./concord workload run " IMAGE " 2>/dev/null",
+             "./bin/concord workload run " IMAGE " 2>/dev/null",
              node);
     fp = popen(cmd, "r");
     if (fp == NULL)
@@ -194,7 +194,7 @@ static int workload_present(int node, const char* shortid) {
 
     snprintf(cmd, sizeof(cmd),
              "XDG_CONFIG_HOME=/tmp/resonance/node%d "
-             "./concord workload list 2>/dev/null",
+             "./bin/concord workload list 2>/dev/null",
              node);
     fp = popen(cmd, "r");
     if (fp == NULL)
@@ -244,8 +244,8 @@ int main(void) {
     int i, victim, phase, seen3, alive, tries, duel;
     time_t t0, tcheck, start;
 
-    if (access("./concord", X_OK) != 0) {
-        printf("concord_duel: skip no ./concord\n");
+    if (access("./bin/concord", X_OK) != 0) {
+        printf("concord_duel: skip no ./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));

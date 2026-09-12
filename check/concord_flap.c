@@ -55,8 +55,8 @@ int main(void) {
     int i, phase, seen3, flaps, alive;
     time_t t0, start;
 
-    if (access("./concord", X_OK) != 0) {
-        printf("concord_flap: skip no ./concord\n");
+    if (access("./bin/concord", X_OK) != 0) {
+        printf("concord_flap: skip no ./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));

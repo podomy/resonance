@@ -24,8 +24,8 @@ static int has(const char* hay, const char* needle) {
 }
 
 int main(void) {
-    if (access("./concord", X_OK) != 0) {
-        printf("concord_two: skip no ./concord\n");
+    if (access("./bin/concord", X_OK) != 0) {
+        printf("concord_two: skip no ./bin/concord\n");
         return (0);
     }
 

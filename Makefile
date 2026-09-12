@@ -2,109 +2,116 @@ CC ?= cc
 CFLAGS += -std=c11 -Wall -Wextra -Werror -O2
 export PATH := /usr/local/go/bin:$(PATH)
 
-all: resonance
+all: bin/resonance
 
-resonance: main.c sim/sim.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c math/math.c tun/tun.c
+bin:
+	mkdir -p $@
+
+bin/resonance: main.c sim/sim.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c math/math.c tun/tun.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/heap_test: check/heap_test.c heap/heap.c
+bin/heap_test: check/heap_test.c heap/heap.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/node_test: check/node_test.c node/node.c
+bin/node_test: check/node_test.c node/node.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/world_test: check/world_test.c world/world.c
+bin/world_test: check/world_test.c world/world.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/determinism: check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c
+bin/determinism: check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/mcast_test: check/mcast_test.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c
+bin/mcast_test: check/mcast_test.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/tun_netns: check/tun_netns.c tun/tun.c math/math.c world/world.c node/node.c
+bin/tun_netns: check/tun_netns.c tun/tun.c math/math.c world/world.c node/node.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/tun_drop: check/tun_drop.c tun/tun.c math/math.c world/world.c node/node.c
+bin/tun_drop: check/tun_drop.c tun/tun.c math/math.c world/world.c node/node.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
 SIM_SRCS = sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c
 
-check/cable: check/cable.c $(SIM_SRCS)
+bin/cable: check/cable.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/mcast: check/mcast.c $(SIM_SRCS)
+bin/mcast: check/mcast.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_two: check/concord_two.c $(SIM_SRCS)
+bin/concord_two: check/concord_two.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_partition: check/concord_partition.c $(SIM_SRCS)
+bin/concord_partition: check/concord_partition.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_three: check/concord_three.c $(SIM_SRCS)
+bin/concord_three: check/concord_three.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_workload: check/concord_workload.c $(SIM_SRCS)
+bin/concord_workload: check/concord_workload.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_restart: check/concord_restart.c $(SIM_SRCS)
+bin/concord_restart: check/concord_restart.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_mobile: check/concord_mobile.c $(SIM_SRCS)
+bin/concord_mobile: check/concord_mobile.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_divergent: check/concord_divergent.c $(SIM_SRCS)
+bin/concord_divergent: check/concord_divergent.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_killmidsync: check/concord_killmidsync.c $(SIM_SRCS)
+bin/concord_killmidsync: check/concord_killmidsync.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_stop: check/concord_stop.c $(SIM_SRCS)
+bin/concord_stop: check/concord_stop.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_flap: check/concord_flap.c $(SIM_SRCS)
+bin/concord_flap: check/concord_flap.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_killisolated: check/concord_killisolated.c $(SIM_SRCS)
+bin/concord_killisolated: check/concord_killisolated.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_splitbrain: check/concord_splitbrain.c $(SIM_SRCS)
+bin/concord_splitbrain: check/concord_splitbrain.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check/concord_duel: check/concord_duel.c $(SIM_SRCS)
+bin/concord_duel: check/concord_duel.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-check: check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop
-	./check/heap_test
-	./check/node_test
-	./check/world_test
-	./check/determinism
-	./check/mcast_test
-	./check/tun_netns
-	./check/tun_drop
+check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
+	./bin/heap_test
+	./bin/node_test
+	./bin/world_test
+	./bin/determinism
+	./bin/mcast_test
+	./bin/tun_netns
+	./bin/tun_drop
 
-check-full: check check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap check/concord_killisolated check/concord_splitbrain check/concord_duel
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_workload bin/concord_restart bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel
 	$(MAKE) concord
-	sudo ./check/concord_two
-	sudo ./check/concord_partition
-	sudo ./check/concord_three
-	sudo ./check/concord_workload
-	sudo ./check/concord_restart
-	sudo ./check/concord_mobile
-	sudo ./check/concord_divergent
-	sudo ./check/concord_killmidsync
-	sudo ./check/concord_stop
-	sudo ./check/concord_flap
-	sudo ./check/concord_killisolated
-	sudo ./check/concord_splitbrain
-	sudo ./check/concord_duel
+	sudo ./bin/concord_two
+	sudo ./bin/concord_partition
+	sudo ./bin/concord_three
+	sudo ./bin/concord_workload
+	sudo ./bin/concord_restart
+	sudo ./bin/concord_mobile
+	sudo ./bin/concord_divergent
+	sudo ./bin/concord_killmidsync
+	sudo ./bin/concord_stop
+	sudo ./bin/concord_flap
+	sudo ./bin/concord_killisolated
+	sudo ./bin/concord_splitbrain
+	sudo ./bin/concord_duel
 
-concord:
+concord: | bin
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
-	cd deps/concord && go build -o $(CURDIR)/concord .
+	cd deps/concord && go build -o $(CURDIR)/bin/concord .
+
+log: bin/resonance
+	[ -x ./bin/concord ] || $(MAKE) concord
+	sudo ./bin/resonance 2>&1 | tee current.log
 
 clean:
-	rm -f resonance check/heap_test check/node_test check/world_test check/determinism check/mcast_test check/tun_netns check/tun_drop check/cable check/mcast check/concord_two check/concord_partition check/concord_three check/concord_workload check/concord_restart check/concord_mobile check/concord_divergent check/concord_killmidsync check/concord_stop check/concord_flap check/concord_killisolated check/concord_splitbrain check/concord_duel
+	rm -rf bin
 
-.PHONY: all check check-full clean concord
+.PHONY: all check check-full clean concord log

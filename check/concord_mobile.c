@@ -59,8 +59,8 @@ int main(void) {
     int i, away, seen3, lost, back;
     time_t t0, start;
 
-    if (access("./concord", X_OK) != 0) {
-        printf("concord_mobile: skip no ./concord\n");
+    if (access("./bin/concord", X_OK) != 0) {
+        printf("concord_mobile: skip no ./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));

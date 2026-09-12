@@ -47,8 +47,8 @@ int main(void) {
     int i, drop, seen2, lost, restored, ok;
     time_t t0, start;
 
-    if (access("./concord", X_OK) != 0) {
-        printf("concord_partition: skip no ./concord\n");
+    if (access("./bin/concord", X_OK) != 0) {
+        printf("concord_partition: skip no ./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));
