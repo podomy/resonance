@@ -36,9 +36,11 @@ static void drain_tun(TunMap* map, MediumGrid* grid,
                       RadioParams* radio, NodeList* nodes,
                       int fd, int i, int* drop) {
     char junk[2048];
+    ssize_t n;
 
     if (drop[i]) {
-        read(fd, junk, sizeof(junk));
+        n = read(fd, junk, sizeof(junk));
+        (void)n;
         return;
     }
     tun_pump_fd(map, fd, grid, radio, nodes);
