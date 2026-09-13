@@ -225,7 +225,9 @@ int main(void) {
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    system("rm -rf /tmp/resonance");
+    if (system("rm -rf /tmp/resonance") != 0) {
+        // Best effort cleanup, teardown already ran.
+    }
 
     if (!hasA[0] || !hasA[1] || !hasA[2] || !hasB[0] ||
         !hasB[1] || !hasB[2]) {

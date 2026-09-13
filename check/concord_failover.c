@@ -360,7 +360,9 @@ int main(void) {
         close(fds[leader]);
     context_free(&ctx);
     sim_netns_teardown(N);
-    system("rm -rf /tmp/resonance");
+    if (system("rm -rf /tmp/resonance") != 0) {
+        // Best effort cleanup, teardown already ran.
+    }
 
     if (has0 && has1 && seg0[0] != '\0' &&
         strcmp(seg0, seg1) == 0 &&

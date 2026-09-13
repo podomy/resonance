@@ -494,7 +494,9 @@ int main(void) {
     sim_netns_teardown(N);
     if (k < ROUNDS || !alive)
         preserve_journals(k);
-    system("rm -rf /tmp/resonance");
+    if (system("rm -rf /tmp/resonance") != 0) {
+        // Best effort cleanup, teardown already ran.
+    }
 
     done = (k >= ROUNDS && alive);
     if (!done) {

@@ -414,7 +414,9 @@ int main(void) {
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    system("rm -rf /tmp/resonance");
+    if (system("rm -rf /tmp/resonance") != 0) {
+        // Best effort cleanup, teardown already ran.
+    }
 
     if (phase != 3 || duel < 2) {
         fprintf(stderr,

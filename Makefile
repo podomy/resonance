@@ -51,6 +51,9 @@ bin/concord_three: check/concord_three.c $(SIM_SRCS) | bin
 bin/concord_scale: check/concord_scale.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_scale_churn: check/concord_scale_churn.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 bin/concord_workload: check/concord_workload.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -102,12 +105,13 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_restart bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_restart bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
 	sudo ./bin/concord_three
 	sudo ./bin/concord_scale
+	sudo ./bin/concord_scale_churn
 	sudo ./bin/concord_workload
 	sudo ./bin/concord_bulk
 	sudo ./bin/concord_spam

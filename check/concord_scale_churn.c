@@ -13,28 +13,24 @@
 #include <time.h>
 #include <unistd.h>
 
-#define N 3
-#define ISOLATE 2
-#define HOLD_UP 8
-#define HOLD_DOWN 10
-#define DEADLINE 240
+#define N 5
+#define VICTIM 4
+#define HOLD_UP 12
+#define DEADLINE 300
 #define IMAGE "docker.io/library/nginx:alpine"
 
-// concord_killisolated asserts a node SIGKILLed
-// mid-partition, restarted fresh while still split,
-// converges after reunion, workload included.
-// Same underlay 192.168.100.1/2/3 as concord_three.
+// concord_scale_churn asserts 5-node mesh, SIGKILL one
+// node, restart it fresh, rejoin: workload and mesh
+// converge on all five. The fresh node resyncs the
+// full journals.
+// Same underlay 192.168.100.1/2/3/4/5, disjoint from
+// overlay 10.0.0.0/16.
 
-// drain_tun pumps one packet, or discards if isolated.
+// drain_tun pumps one packet. The kill and restart
+// complete in one iteration, so no drop window exists.
 static void drain_tun(TunMap* map, MediumGrid* grid,
                       RadioParams* radio, NodeList* nodes,
-                      int fd, int i, int drop) {
-    char junk[2048];
-
-    if (drop && i == ISOLATE) {
-        read(fd, junk, sizeof(junk));
-        return;
-    }
+                      int fd) {
     tun_pump_fd(map, fd, grid, radio, nodes);
 }
 
@@ -95,6 +91,57 @@ static int submit_workload(int node, char* out, size_t n) {
     return (1);
 }
 
+// nodes_alive runs node list against node and reports
+// how many members show alive.
+static int nodes_alive(int node) {
+    FILE* fp;
+    char cmd[256];
+    char buf[16384];
+    size_t len;
+    size_t n;
+    int alive;
+    char* s;
+
+    snprintf(cmd, sizeof(cmd),
+             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "./bin/concord node list 2>/dev/null",
+             node);
+    fp = popen(cmd, "r");
+    if (fp == NULL)
+        return (-1);
+    len = 0;
+    while ((n = fread(buf + len, 1, sizeof(buf) - len - 1,
+                      fp)) > 0) {
+        len += n;
+        if (len >= sizeof(buf) - 1)
+            break;
+    }
+    pclose(fp);
+    buf[len] = '\0';
+    alive = 0;
+    s = buf;
+    while ((s = strstr(s, "alive")) != NULL) {
+        alive++;
+        s++;
+    }
+    return (alive);
+}
+
+// mesh5 polls node list on every node every 2s,
+// reports 1 when all see 5 alive.
+static int mesh5(time_t* tcheck) {
+    int i;
+
+    if (*tcheck != 0 && time(NULL) - *tcheck < 2)
+        return (0);
+    *tcheck = time(NULL);
+    for (i = 0; i < N; i++) {
+        if (nodes_alive(i) != N)
+            return (0);
+    }
+    return (1);
+}
+
 // hold arms t0 on first call, fires secs later.
 static int hold(time_t* t0, int secs) {
     if (*t0 == 0) {
@@ -104,17 +151,16 @@ static int hold(time_t* t0, int secs) {
     return (time(NULL) - *t0 >= secs);
 }
 
-// do_kill_isolated SIGKILLs node 2 mid-partition and
-// restarts it fresh while still split.
-static void do_kill_isolated(pid_t* pids, int* logfds,
-                             struct pollfd* p) {
-    kill(pids[ISOLATE], SIGKILL);
-    waitpid(pids[ISOLATE], NULL, 0);
-    close(logfds[ISOLATE]);
-    if (sim_restart_concord(pids, logfds, ISOLATE)) {
-        p[N + ISOLATE].fd = logfds[ISOLATE];
-        p[N + ISOLATE].events = POLLIN;
-    }
+// ask_lists refreshes has[] from every node every 2s.
+static void ask_lists(int* has, const char* shortid,
+                      time_t* tcheck) {
+    int i;
+
+    if (*tcheck != 0 && time(NULL) - *tcheck < 2)
+        return;
+    *tcheck = time(NULL);
+    for (i = 0; i < N; i++)
+        has[i] = workload_present(i, shortid);
 }
 
 int main(void) {
@@ -125,11 +171,12 @@ int main(void) {
     pid_t pids[N];
     int has[N];
     char wid[64], shortid[16];
-    int i, phase, seen3, alive;
-    time_t t0, tcheck, start;
+    int i, phase, seen5, done, alive;
+    time_t t0, tcheck, tmesh, start;
 
     if (access("./bin/concord", X_OK) != 0) {
-        printf("concord_killisolated: skip no ./bin/concord\n");
+        printf("concord_scale_churn: skip no "
+               "./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));
@@ -138,7 +185,7 @@ int main(void) {
     if (!sim_netns_setup(N))
         return (1);
     if (!sim_tuns_open(fds, N)) {
-        printf("concord_killisolated: skip (%s)\n",
+        printf("concord_scale_churn: skip (%s)\n",
                strerror(errno));
         return (0);
     }
@@ -158,9 +205,11 @@ int main(void) {
     }
 
     phase = 0;
-    seen3 = 0;
+    seen5 = 0;
+    done = 0;
     t0 = 0;
     tcheck = 0;
+    tmesh = 0;
     wid[0] = '\0';
     shortid[0] = '\0';
     start = time(NULL);
@@ -169,46 +218,58 @@ int main(void) {
             for (i = 0; i < N; i++) {
                 if (p[i].revents & POLLIN)
                     drain_tun(&map, &ctx.grid, &ctx.radio,
-                              &ctx.nodes, fds[i], i,
-                              phase == 1 || phase == 2);
+                              &ctx.nodes, fds[i]);
                 if (!(p[N + i].revents & POLLIN))
                     continue;
                 char buf[2048];
                 ssize_t n;
 
-                // Just look for the string peers:3.
+                // Just look for the string peers:5.
                 n = read(logfds[i], buf, sizeof(buf) - 1);
                 if (n <= 0)
                     continue;
                 buf[n] = '\0';
-                if (strstr(buf, "\"peers\":3") != NULL)
-                    seen3 = 1;
+                if (strstr(buf, "\"peers\":5") != NULL)
+                    seen5 = 1;
             }
         }
-        if (phase == 0 && seen3 && hold(&t0, HOLD_UP)) {
-            if (!submit_workload(0, wid, sizeof(wid)))
+        if (phase == 0 && seen5 && hold(&t0, HOLD_UP)) {
+            // Submit on node 0, wait for all to list it.
+            if (submit_workload(0, wid, sizeof(wid))) {
+                memcpy(shortid, wid, 8);
+                shortid[8] = '\0';
+                phase = 1;
+                tcheck = 0;
+            } else {
                 break;
-            memcpy(shortid, wid, 8);
-            shortid[8] = '\0';
-            phase = 1;
-            t0 = 0;
-        } else if (phase == 1 && hold(&t0, HOLD_DOWN)) {
-            do_kill_isolated(pids, logfds, p);
-            phase = 2;
-            t0 = 0;
-        } else if (phase == 2 && hold(&t0, HOLD_DOWN)) {
-            phase = 3;
-            seen3 = 0;
-            t0 = 0;
-            tcheck = 0;
-        } else if (phase == 3 && shortid[0] != '\0' &&
-                   (tcheck == 0 ||
-                    time(NULL) - tcheck >= 2)) {
-            tcheck = time(NULL);
-            for (i = 0; i < N; i++)
-                has[i] = workload_present(i, shortid);
-            if (seen3 && has[0] && has[1] && has[2])
+            }
+        } else if (phase == 1) {
+            // Converged pre-condition, then SIGKILL
+            // node 4 and restart it fresh.
+            ask_lists(has, shortid, &tcheck);
+            if (has[0] && has[1] && has[2] && has[3] &&
+                has[4]) {
+                kill(pids[VICTIM], SIGKILL);
+                waitpid(pids[VICTIM], NULL, 0);
+                close(logfds[VICTIM]);
+                if (!sim_restart_concord(pids, logfds,
+                                         VICTIM)) {
+                    break;
+                }
+                p[N + VICTIM].fd = logfds[VICTIM];
+                p[N + VICTIM].events = POLLIN;
+                phase = 2;
+                tcheck = 0;
+            }
+        } else if (phase == 2) {
+            // Fresh node resynced: workload on all
+            // five, mesh back to 5.
+            ask_lists(has, shortid, &tcheck);
+            if (has[0] && has[1] && has[2] && has[3] &&
+                has[4] && mesh5(&tmesh)) {
+                done = 1;
                 break;
+            }
         }
         alive = 0;
         for (i = 0; i < N; i++) {
@@ -231,11 +292,12 @@ int main(void) {
         // Best effort cleanup, teardown already ran.
     }
 
-    if (!seen3 || !has[0] || !has[1] || !has[2]) {
+    if (!done) {
         fprintf(stderr,
-                "concord_killisolated: fail workload %s "
-                "on %d %d %d phase=%d\n",
-                shortid, has[0], has[1], has[2], phase);
+                "concord_scale_churn: fail workload %s on "
+                "%d %d %d %d %d phase=%d\n",
+                shortid, has[0], has[1], has[2], has[3],
+                has[4], phase);
         return (1);
     }
     return (0);
