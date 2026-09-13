@@ -37,3 +37,31 @@ jobs:
           name: resonance-linux-amd64
           path: dist/resonance-linux-amd64
           retention-days: 30
+
+  concord:
+    name: Concord Scenarios
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      # sudo sanitizes PATH, so expose go where sudo finds it.
+      - name: Link Go into secure PATH
+        run: sudo ln -sf "$(which go)" /usr/local/bin/go
+
+      # Concord requires an operator-provisioned CA in
+      # PKCS#1 format; mint an ephemeral one per run.
+      - name: Generate test CA
+        run: |
+          mkdir -p certs
+          openssl genrsa -traditional -out certs/ca.key 2048
+          openssl req -new -x509 -key certs/ca.key -out certs/ca.crt -days 2 -subj "/CN=resonance-test-ca"
+
+      - name: Run Concord scenarios
+        run: sudo make check-full
