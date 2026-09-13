@@ -308,7 +308,9 @@ static void preserve_journals(int round) {
              "config.json %s/node$i/concord/ "
              "2>/dev/null; done",
              d, d, d, d);
-    system(cmd);
+    if (system(cmd) != 0) {
+        // Best effort forensics, teardown continues.
+    }
     fprintf(stderr,
             "concord_spam: journals preserved at %s\n", d);
 }

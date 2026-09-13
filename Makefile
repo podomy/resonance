@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS += -std=c11 -Wall -Wextra -Werror -O2
+CFLAGS += -std=c11 -Wall -Wextra -Werror -O2 -Wunused-result
 export PATH := /usr/local/go/bin:$(PATH)
 
 all: bin/resonance
