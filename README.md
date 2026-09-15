@@ -5,9 +5,12 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/podomy/resonance" alt="License"></a>
 </p>
 
-Resonance simulates autonomous nodes moving in physical 2D space and the
-network mesh and interference as they move in and out of range. It was
-primarily made for [Concord](https://github.com/podomy/concord) to create a flywheel of software and simulation.
+Resonance is a high-fidelity simulator and regression harness for
+[Concord](https://github.com/podomy/concord): it runs real Concord
+binaries in isolated network namespaces over a simulated radio mesh,
+and asserts cluster convergence across partition, fault, and scale
+scenarios. It was primarily made for Concord to create a flywheel of
+software and simulation.
 
 ### Build and test
 

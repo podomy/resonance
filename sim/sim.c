@@ -198,8 +198,11 @@ bool sim_addrs_up(int n) {
 }
 
 // spawn_one seeds node i and forks it. Stores pid and
-// logfd. Parent config root must exist.
-static bool spawn_one(pid_t* pid, int* logfd, int i) {
+// logfd. Parent config root must exist. clock_offset is
+// the CONCORD_CLOCK_OFFSET value for this node, or NULL
+// for true time.
+static bool spawn_one(pid_t* pid, int* logfd, int i,
+                      const char* clock_offset) {
     int pipedes[2];
 
     if (pipe(pipedes) < 0) {
@@ -250,6 +253,10 @@ static bool spawn_one(pid_t* pid, int* logfd, int i) {
         return (false);
     if (*pid == 0) {
         setenv("XDG_CONFIG_HOME", dir, 1);
+        if (clock_offset != NULL) {
+            setenv("CONCORD_CLOCK_OFFSET", clock_offset,
+                   1);
+        }
         if (i > 0) {
             char path[64];
             int nsfd;
@@ -279,6 +286,17 @@ static bool spawn_one(pid_t* pid, int* logfd, int i) {
     return (true);
 }
 
+// ensure_parent creates the parent config root for
+// all nodes. Mode 0700 matches certs.Dir(). EEXIST is
+// benign for idempotent setup.
+static bool ensure_parent(void) {
+    if (mkdir("/tmp/resonance", 0700) != 0 &&
+        errno != EEXIST) {
+        return (false);
+    }
+    return (true);
+}
+
 // sim_spawn_concord forks concord nodes with isolated
 // XDG_CONFIG_HOME.
 bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
@@ -286,19 +304,36 @@ bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
 
     if (n < 1 || n > TUN_MAP_MAX)
         return (false);
-
-    // Parent config root for all nodes.
-    // Mode 0700 matches certs.Dir().
-    // EEXIST is benign for idempotent setup.
-    char parent_dir[64];
-    snprintf(parent_dir, sizeof(parent_dir),
-             "/tmp/resonance");
-    if (mkdir(parent_dir, 0700) != 0 && errno != EEXIST) {
+    if (!ensure_parent())
         return (false);
-    }
 
     for (i = 0; i < n; i++) {
-        if (!spawn_one(&pids[i], &logfds[i], i))
+        if (!spawn_one(&pids[i], &logfds[i], i, NULL))
+            return (false);
+    }
+    return (true);
+}
+
+// sim_spawn_concord_skew forks like sim_spawn_concord
+// but runs node skew_node with CONCORD_CLOCK_OFFSET
+// set to offset seconds (e.g. "300"). The offset env
+// is the Concord test time hook; production must never
+// set it.
+bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
+                            int skew_node,
+                            const char* offset) {
+    int i;
+
+    if (n < 1 || n > TUN_MAP_MAX)
+        return (false);
+    if (!ensure_parent())
+        return (false);
+
+    for (i = 0; i < n; i++) {
+        const char* off;
+
+        off = (i == skew_node) ? offset : NULL;
+        if (!spawn_one(&pids[i], &logfds[i], i, off))
             return (false);
     }
     return (true);
@@ -314,5 +349,5 @@ bool sim_restart_concord(pid_t* pids, int* logfds, int i) {
     snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
     if (!run(cmd))
         return (false);
-    return (spawn_one(&pids[i], &logfds[i], i));
+    return (spawn_one(&pids[i], &logfds[i], i, NULL));
 }

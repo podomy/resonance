@@ -29,6 +29,15 @@ bool sim_addrs_up(int n);
 // XDG_CONFIG_HOME.
 bool sim_spawn_concord(pid_t* pids, int* logfds, int n);
 
+// sim_spawn_concord_skew forks like sim_spawn_concord
+// but runs node skew_node with CONCORD_CLOCK_OFFSET
+// set to offset seconds (e.g. "300"). The offset env
+// is the Concord test time hook; production must never
+// set it.
+bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
+                            int skew_node,
+                            const char* offset);
+
 // sim_restart_concord wipes node i for a fresh identity
 // and forks it again. Caller must have killed and reaped
 // the old child and closed its logfd.

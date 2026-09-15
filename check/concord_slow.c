@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
-#include "shared/context.h"
-#include "sim/sim.h"
-#include "tun/tun.h"
-#include "world/world.h"
+#include "../shared/context.h"
+#include "../sim/sim.h"
+#include "../tun/tun.h"
+#include "../world/world.h"
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
@@ -14,89 +14,35 @@
 #include <unistd.h>
 
 #define N 3
-#define SKEW_NODE 2
-#define SKEW_SECS 300
-#define SKEW_OFFSET "300"
+#define SLOW 2
+#define SLOW_SECS 2
 #define HOLD_UP 8
 #define DEADLINE 180
 #define IMAGE "docker.io/library/nginx:alpine"
 
-// skew demo: mesh three nodes with node 2's wall clock
-// 300s ahead via the Concord test time hook, submit on
-// node 0, watch the workload converge everywhere anyway.
+// concord_slow asserts a workload submitted on a fully
+// connected node converges on all nodes even while one
+// peer's packets move in latency batches. Suspect
+// flapping is tolerated; the verdict is convergence.
+// Same underlay 192.168.100.1/2/3 as concord_three.
 
-// drain_tun pumps one packet.
-static void drain_tun(TunMap* map, MediumGrid* grid,
+// pump_slow drains all pending packets from a deferred
+// fd: one latency batch per interval, full throughput
+// on release. TCP's ACK clock slows the peer emergently.
+static void pump_slow(TunMap* map, MediumGrid* grid,
                       RadioParams* radio, NodeList* nodes,
-                      int fd) {
-    tun_pump_fd(map, fd, grid, radio, nodes);
-}
+                      int fd, time_t* last, int secs) {
+    struct pollfd q;
+    time_t now;
 
-// drain_log prints one child line. Sets seen3 on peers:3.
-static void drain_log(int i, int fd, int* seen3) {
-    char buf[2048];
-    ssize_t n;
-
-    n = read(fd, buf, sizeof(buf) - 1);
-    if (n <= 0)
+    now = time(NULL);
+    if (now - *last < secs)
         return;
-    buf[n] = '\0';
-    printf("\033[%dm[node %d]\033[0m %s", 36 + i, i, buf);
-    if (strstr(buf, "\"peers\":3") != NULL)
-        *seen3 = 1;
-}
-
-// journal_now reads node i's latest journal event time
-// as epoch seconds. Returns -1 when unreadable.
-static time_t journal_now(int node) {
-    FILE* fp;
-    char cmd[512];
-    char buf[256];
-    char* t;
-    int Y, Mo, D, h, mi, s;
-    struct tm tm;
-
-    snprintf(cmd, sizeof(cmd),
-             "grep -h '\"timestamp\"' /tmp/resonance/node%d/"
-             "concord/journal.jsonl 2>/dev/null | tail -1",
-             node);
-    fp = popen(cmd, "r");
-    if (fp == NULL)
-        return (-1);
-    if (fgets(buf, sizeof(buf), fp) == NULL) {
-        pclose(fp);
-        return (-1);
-    }
-    pclose(fp);
-    t = strstr(buf, "\"timestamp\":\"");
-    if (t == NULL)
-        return (-1);
-    if (sscanf(t, "\"timestamp\":\"%4d-%2d-%2dT%2d:%2d:%2d",
-               &Y, &Mo, &D, &h, &mi, &s) != 6)
-        return (-1);
-    memset(&tm, 0, sizeof(tm));
-    tm.tm_year = Y - 1900;
-    tm.tm_mon = Mo - 1;
-    tm.tm_mday = D;
-    tm.tm_hour = h;
-    tm.tm_min = mi;
-    tm.tm_sec = s;
-    return (timegm(&tm));
-}
-
-// skew_ok reports 1 when node 2's journal runs
-// SKEW_SECS ahead of true time: the fault is live,
-// not assumed. Log timestamps come from the logging
-// library's own clock and stay true; only the hooked
-// application clock skews.
-static int skew_ok(void) {
-    time_t j, d;
-
-    j = journal_now(SKEW_NODE);
-    if (j == (time_t)-1)
-        return (0);
-    d = j - time(NULL);
-    return (d > SKEW_SECS - 60 && d < SKEW_SECS + 60);
+    *last = now;
+    q.fd = fd;
+    q.events = POLLIN;
+    while (poll(&q, 1, 0) > 0 && (q.revents & POLLIN))
+        tun_pump_fd(map, fd, grid, radio, nodes);
 }
 
 // workload_present runs workload list against node and
@@ -186,12 +132,10 @@ int main(void) {
     int has[N];
     char wid[64], shortid[16];
     int i, phase, seen3, done, alive;
-    time_t t0, tcheck, start;
+    time_t t0, tcheck, tslow, start;
 
-    // Unbuffered so piped logs stream live.
-    setvbuf(stdout, NULL, _IONBF, 0);
     if (access("./bin/concord", X_OK) != 0) {
-        printf("resonance: skip no ./bin/concord\n");
+        printf("concord_slow: skip no ./bin/concord\n");
         return (0);
     }
     memset(&map, 0, sizeof(map));
@@ -200,15 +144,15 @@ int main(void) {
     if (!sim_netns_setup(N))
         return (1);
     if (!sim_tuns_open(fds, N)) {
-        printf("resonance: skip (%s)\n", strerror(errno));
+        printf("concord_slow: skip (%s)\n",
+               strerror(errno));
         return (0);
     }
     if (!sim_nodes_add(&ctx, &map, fds, N))
         return (1);
     if (!sim_addrs_up(N))
         return (1);
-    if (!sim_spawn_concord_skew(pids, logfds, N,
-                                SKEW_NODE, SKEW_OFFSET))
+    if (!sim_spawn_concord(pids, logfds, N))
         return (1);
 
     for (i = 0; i < N; i++) {
@@ -218,42 +162,51 @@ int main(void) {
         p[N + i].events = POLLIN;
         has[i] = 0;
     }
-    printf("resonance: 3 nodes ready - skew demo\n");
 
     phase = 0;
     seen3 = 0;
     done = 0;
     t0 = 0;
     tcheck = 0;
+    tslow = 0;
     wid[0] = '\0';
     shortid[0] = '\0';
     start = time(NULL);
     while (time(NULL) - start < DEADLINE) {
         if (poll(p, 2 * N, 100) > 0) {
             for (i = 0; i < N; i++) {
-                if (p[i].revents & POLLIN)
-                    drain_tun(&map, &ctx.grid, &ctx.radio,
-                              &ctx.nodes, fds[i]);
-                if (p[N + i].revents & POLLIN)
-                    drain_log(i, logfds[i], &seen3);
+                if (!(p[i].revents & POLLIN))
+                    continue;
+                if (i == SLOW)
+                    pump_slow(&map, &ctx.grid,
+                              &ctx.radio, &ctx.nodes,
+                              fds[i], &tslow, SLOW_SECS);
+                else
+                    tun_pump_fd(&map, fds[i], &ctx.grid,
+                                &ctx.radio, &ctx.nodes);
+                if (!(p[N + i].revents & POLLIN))
+                    continue;
+                char buf[2048];
+                ssize_t n;
+
+                // Just look for the string peers:3.
+                n = read(logfds[i], buf, sizeof(buf) - 1);
+                if (n <= 0)
+                    continue;
+                buf[n] = '\0';
+                if (strstr(buf, "\"peers\":3") != NULL)
+                    seen3 = 1;
             }
         }
-        if (phase == 0 && seen3 && skew_ok() &&
-            hold(&t0, HOLD_UP)) {
+        if (phase == 0 && seen3 && hold(&t0, HOLD_UP)) {
             // Submit on node 0, wait for all to list
-            // it across the skewed clock.
-            printf("resonance: skew +300s live on node "
-                   "%d\n",
-                   SKEW_NODE);
+            // it over the laggy link.
             if (submit_workload(0, wid, sizeof(wid))) {
                 memcpy(shortid, wid, 8);
                 shortid[8] = '\0';
-                printf("resonance: workload %s on node 0\n",
-                       wid);
                 phase = 1;
                 tcheck = 0;
             } else {
-                printf("resonance: submit failed\n");
                 break;
             }
         } else if (phase == 1) {
@@ -284,13 +237,12 @@ int main(void) {
         // Best effort cleanup, teardown already ran.
     }
 
-    if (done) {
-        printf("resonance: skew converged on all 3 "
-               "nodes\n");
-        return (0);
+    if (!done) {
+        fprintf(stderr,
+                "concord_slow: fail workload %s on %d %d "
+                "%d phase=%d\n",
+                shortid, has[0], has[1], has[2], phase);
+        return (1);
     }
-    printf("resonance: FAIL phase=%d workload %s on "
-           "%d %d %d\n",
-           phase, shortid, has[0], has[1], has[2]);
-    return (1);
+    return (0);
 }
