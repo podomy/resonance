@@ -134,7 +134,7 @@ static int submit_workload(int node, char* out, size_t n) {
     return (1);
 }
 
-// read_assignment stores the latest SegmentID recorded
+// read_assignment stores the latest AssignedNodeID recorded
 // for wid in node i's journal. Returns 1 on success.
 static int read_assignment(int node, const char* wid,
                            char* out, size_t n) {
@@ -146,7 +146,7 @@ static int read_assignment(int node, const char* wid,
     snprintf(cmd, sizeof(cmd),
              "grep '%s' /tmp/resonance/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
-             "'\"SegmentID\":\"[^\"]*\"' | tail -1",
+             "'\"AssignedNodeID\":\"[^\"]*\"' | tail -1",
              wid, node);
     fp = popen(cmd, "r");
     if (fp == NULL)
@@ -156,8 +156,9 @@ static int read_assignment(int node, const char* wid,
         return (0);
     }
     pclose(fp);
-    // Output is "SegmentID":"<uuid>".
-    if (sscanf(buf, "\"SegmentID\":\"%63[^\"]\"", seg) != 1)
+    // Output is "AssignedNodeID":"<uuid>".
+    if (sscanf(buf, "\"AssignedNodeID\":\"%63[^\"]\"",
+               seg) != 1)
         return (0);
     if (strlen(seg) + 1 > n)
         return (0);

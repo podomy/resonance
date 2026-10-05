@@ -70,7 +70,7 @@ static int submit_workload(int node, char* out, size_t n) {
     return (1);
 }
 
-// read_assignment stores the latest SegmentID recorded
+// read_assignment stores the latest AssignedNodeID recorded
 // for wid in node i's journal. Returns 1 on success.
 static int read_assignment(int node, const char* wid,
                            char* out, size_t n) {
@@ -82,7 +82,7 @@ static int read_assignment(int node, const char* wid,
     snprintf(cmd, sizeof(cmd),
              "grep '%s' /tmp/resonance/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
-             "'\"SegmentID\":\"[^\"]*\"' | tail -1",
+             "'\"AssignedNodeID\":\"[^\"]*\"' | tail -1",
              wid, node);
     fp = popen(cmd, "r");
     if (fp == NULL)
@@ -92,8 +92,9 @@ static int read_assignment(int node, const char* wid,
         return (0);
     }
     pclose(fp);
-    // Output is "SegmentID":"<uuid>".
-    if (sscanf(buf, "\"SegmentID\":\"%63[^\"]\"", seg) != 1)
+    // Output is "AssignedNodeID":"<uuid>".
+    if (sscanf(buf, "\"AssignedNodeID\":\"%63[^\"]\"",
+               seg) != 1)
         return (0);
     if (strlen(seg) + 1 > n)
         return (0);
@@ -131,7 +132,7 @@ static int node_id(int i, char* out, size_t n) {
 }
 
 // author_assigned reports 1 if node i's journal holds
-// a non-nil SegmentID for wid authored by node i
+// a non-nil AssignedNodeID for wid authored by node i
 // itself: this side acted independently. Synced
 // copies keep their author, so reunion cannot fake
 // this. The spec payload carries no node_id field,
@@ -149,7 +150,7 @@ static int author_assigned(int node, const char* wid) {
     snprintf(cmd, sizeof(cmd),
              "grep '%s' /tmp/resonance/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep "
-             "'\"SegmentID\":\"' | grep -v '%s' | "
+             "'\"AssignedNodeID\":\"' | grep -v '%s' | "
              "grep -q '%s'",
              wid, node, NIL_UUID, pat);
     rc = system(cmd);
@@ -158,7 +159,7 @@ static int author_assigned(int node, const char* wid) {
 
 // sides_authored reports 1 when the victim journal
 // and at least one pair journal each hold a self-
-// authored non-nil SegmentID for wid: both sides
+// authored non-nil AssignedNodeID for wid: both sides
 // acted, whatever they picked.
 static int sides_authored(int victim,
                            const char* wid) {
@@ -176,7 +177,7 @@ static int sides_authored(int victim,
 }
 
 // assigned_anywhere reports 1 if any journal holds a
-// non-nil SegmentID for wid. A split only duels while
+// non-nil AssignedNodeID for wid. A split only duels while
 // the spec is still unassigned everywhere.
 static int assigned_anywhere(const char* wid) {
     char cmd[512];
@@ -185,8 +186,8 @@ static int assigned_anywhere(const char* wid) {
     snprintf(cmd, sizeof(cmd),
              "grep -h '%s' /tmp/resonance/node*/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
-             "'\"SegmentID\":\"[^\"]*\"' | grep -v '%s' | "
-             "grep -q .",
+             "'\"AssignedNodeID\":\"[^\"]*\"' | "
+             "grep -v '%s' | grep -q .",
              wid, NIL_UUID);
     rc = system(cmd);
     return (rc == 0);
@@ -226,7 +227,7 @@ static int spec_both_sides(int victim,
 
 // sides_assigned reports 1 when the victim journal
 // and at least one pair journal each hold a non-nil
-// SegmentID for wid: both sides visibly assigned.
+// AssignedNodeID for wid: both sides visibly assigned.
 static int sides_assigned(int victim, const char* wid) {
     char seg[64];
     int i;
