@@ -102,6 +102,15 @@ bin/concord_duel: check/concord_duel.c $(SIM_SRCS) | bin
 bin/concord_failover: check/concord_failover.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_orphan: check/concord_orphan.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
+bin/concord_orphan_partition: check/concord_orphan_partition.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
+bin/concord_orphan_stop: check/concord_orphan_stop.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
 	./bin/heap_test
 	./bin/node_test
@@ -111,7 +120,7 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
@@ -134,6 +143,9 @@ check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/co
 	sudo ./bin/concord_splitbrain
 	sudo ./bin/concord_duel
 	sudo ./bin/concord_failover
+	sudo ./bin/concord_orphan
+	sudo ./bin/concord_orphan_partition
+	sudo ./bin/concord_orphan_stop
 
 concord: | bin
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
