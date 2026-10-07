@@ -147,6 +147,9 @@ check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/co
 	sudo ./bin/concord_orphan_partition
 	sudo ./bin/concord_orphan_stop
 
+# deps/concord is a fetched upstream checkout, not a
+# working copy. Never edit it in place: push the change
+# to Concord itself, then refetch with make concord.
 concord: | bin
 	git -C deps/concord pull --ff-only || git clone https://github.com/podomy/concord.git deps/concord
 	cd deps/concord && go build -o $(CURDIR)/bin/concord .
