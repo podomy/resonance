@@ -96,6 +96,26 @@ generation and re-pins.
   place, peers re-pin at generation 1, mesh and workload
   converge after.
 
+## Sync durability
+
+Cursors remember what each node already pulled from each
+peer, persist across restarts, and unknown cursors fall
+back to the beginning instead of sticking. The serving
+index finds the position without re-reading the file,
+and stale entries heal by overwrite on first use.
+
+- `concord_cursor_resume`: SIGKILL a node, restart it
+  with the same dir. Identity, journal, cursor store,
+  and pins persist; only the process dies. Re-mesh,
+  then workload convergence on all nodes.
+- `concord_catchup`: a 100-workload backlog built on an
+  isolated node drains onto all nodes after reunion.
+- `concord_reinstall`: a node stopped, wiped of journal
+  plus kv store, and restarted under the same id and
+  Noise key rejoins cleanly. Peers fall back past stale
+  cursors, the node re-pulls full history, workload
+  converges everywhere.
+
 ## Out of scope
 
 There is no Byzantine outsider scenario, by
