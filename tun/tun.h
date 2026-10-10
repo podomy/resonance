@@ -30,6 +30,16 @@ bool tun_map_add(TunMap* map, int fd, const uint8_t ip[4],
 void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
                  RadioParams* radio, NodeList* nodes);
 
+// tun_pump_fd_nomcast pumps like tun_pump_fd but drops
+// IPv4 multicast (224.0.0.0/4) instead of broadcasting
+// it. mDNS discovery goes blind while unicast gossip,
+// sync, and Noise keep flowing: the anchor path alone
+// must carry discovery.
+void tun_pump_fd_nomcast(TunMap* map, int from_fd,
+                         MediumGrid* grid,
+                         RadioParams* radio,
+                         NodeList* nodes);
+
 /*
  * radio_path, then write. delay_ns is not slept here;
  * the Context pump will enqueue that delay later.

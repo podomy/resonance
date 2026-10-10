@@ -120,6 +120,9 @@ bin/concord_catchup: check/concord_catchup.c $(SIM_SRCS) | bin
 bin/concord_reinstall: check/concord_reinstall.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_anchor: check/concord_anchor.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
 	./bin/heap_test
 	./bin/node_test
@@ -129,7 +132,7 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall bin/concord_anchor
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
@@ -158,6 +161,7 @@ check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/co
 	sudo ./bin/concord_cursor_resume
 	sudo ./bin/concord_catchup
 	sudo ./bin/concord_reinstall
+	sudo ./bin/concord_anchor
 
 # deps/concord is a fetched upstream checkout, not a
 # working copy. Never edit it in place: push the change

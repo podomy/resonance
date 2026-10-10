@@ -223,9 +223,14 @@ static bool ensure_gossip_key(void) {
 // spawn_one seeds node i and forks it. Stores pid and
 // logfd. Parent config root must exist. clock_offset is
 // the CONCORD_CLOCK_OFFSET value for this node, or NULL
-// for true time.
+// for true time. anchor_arg is an extra daemon argv
+// entry (e.g. "--anchor") or NULL. anchor_octet adds an
+// anchors entry for 192.168.100.anchor_octet:7946 to
+// every node config when nonzero.
 static bool spawn_one(pid_t* pid, int* logfd, int i,
-                      const char* clock_offset) {
+                      const char* clock_offset,
+                      const char* anchor_arg,
+                      int anchor_octet) {
     int pipedes[2];
 
     if (pipe(pipedes) < 0) {
@@ -280,14 +285,27 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
     if (!run(cmd))
         return (false);
 
-    snprintf(
-        cmd, sizeof(cmd),
-        "mkdir -p %s/concord && uuid=$(cat "
-        "/proc/sys/kernel/random/uuid) && printf "
-        "'{\"id\":\"%%s\",\"memberlist_address\":\"0.0."
-        "0.0:7946\",\"advertise_address\":\"192.168."
-        "100.%d\"}' \"$uuid\" > %s/concord/config.json",
-        dir, i + 1, dir);
+    if (anchor_octet != 0) {
+        snprintf(
+            cmd, sizeof(cmd),
+            "mkdir -p %s/concord && uuid=$(cat "
+            "/proc/sys/kernel/random/uuid) && printf "
+            "'{\"id\":\"%%s\",\"memberlist_address\":"
+            "\"0.0.0.0:7946\",\"advertise_address\":"
+            "\"192.168.100.%d\",\"anchors\":"
+            "[{\"address\":\"192.168.100.%d:7946\"}]}' "
+            "\"$uuid\" > %s/concord/config.json",
+            dir, i + 1, anchor_octet, dir);
+    } else {
+        snprintf(
+            cmd, sizeof(cmd),
+            "mkdir -p %s/concord && uuid=$(cat "
+            "/proc/sys/kernel/random/uuid) && printf "
+            "'{\"id\":\"%%s\",\"memberlist_address\":\"0.0."
+            "0.0:7946\",\"advertise_address\":\"192.168."
+            "100.%d\"}' \"$uuid\" > %s/concord/config.json",
+            dir, i + 1, dir);
+    }
     if (!run(cmd))
         return (false);
 
@@ -321,7 +339,13 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
         close(pipedes[0]);
         close(pipedes[1]);
 
-        execl("./bin/concord", "concord", (char*)NULL);
+        if (anchor_arg != NULL) {
+            execl("./bin/concord", "concord", anchor_arg,
+                  (char*)NULL);
+        } else {
+            execl("./bin/concord", "concord",
+                  (char*)NULL);
+        }
         _exit(127);
     }
 
@@ -352,7 +376,8 @@ bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
         return (false);
 
     for (i = 0; i < n; i++) {
-        if (!spawn_one(&pids[i], &logfds[i], i, NULL))
+        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
+                       NULL, 0))
             return (false);
     }
     return (true);
@@ -377,7 +402,8 @@ bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
         const char* off;
 
         off = (i == skew_node) ? offset : NULL;
-        if (!spawn_one(&pids[i], &logfds[i], i, off))
+        if (!spawn_one(&pids[i], &logfds[i], i, off,
+                       NULL, 0))
             return (false);
     }
     return (true);
@@ -393,5 +419,33 @@ bool sim_restart_concord(pid_t* pids, int* logfds, int i) {
     snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
     if (!run(cmd))
         return (false);
-    return (spawn_one(&pids[i], &logfds[i], i, NULL));
+    return (spawn_one(&pids[i], &logfds[i], i, NULL,
+                      NULL, 0));
+}
+
+// sim_spawn_concord_anchor forks like sim_spawn_concord
+// but runs node anchor_node with --anchor and points
+// every node config at it via anchors. Underlay
+// 192.168.100.anchor_octet:7946 must be the anchor
+// node's address.
+bool sim_spawn_concord_anchor(pid_t* pids, int* logfds,
+                              int n, int anchor_node) {
+    int i;
+
+    if (n < 1 || n > TUN_MAP_MAX)
+        return (false);
+    if (anchor_node < 0 || anchor_node >= n)
+        return (false);
+    if (!ensure_parent())
+        return (false);
+
+    for (i = 0; i < n; i++) {
+        const char* arg;
+
+        arg = (i == anchor_node) ? "--anchor" : NULL;
+        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
+                       arg, anchor_node + 1))
+            return (false);
+    }
+    return (true);
 }

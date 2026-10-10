@@ -38,6 +38,12 @@ bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
                             int skew_node,
                             const char* offset);
 
+// sim_spawn_concord_anchor forks like sim_spawn_concord
+// but runs node anchor_node with --anchor and points
+// every node config at it via anchors.
+bool sim_spawn_concord_anchor(pid_t* pids, int* logfds,
+                              int n, int anchor_node);
+
 // sim_restart_concord wipes node i for a fresh identity
 // and forks it again. Caller must have killed and reaped
 // the old child and closed its logfd.

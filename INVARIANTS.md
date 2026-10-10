@@ -116,6 +116,17 @@ and stale entries heal by overwrite on first use.
   cursors, the node re-pulls full history, workload
   converges everywhere.
 
+## Discovery
+
+mDNS carries LAN discovery; provisioned rendezvous
+anchors carry it where multicast cannot go. Either path
+alone must mesh the fleet.
+
+- `concord_anchor`: node 0 serves as anchor, all nodes
+  carry it in config, multicast dropped from boot.
+  Mesh plus workload convergence on the anchor path
+  alone.
+
 ## Out of scope
 
 There is no Byzantine outsider scenario, by

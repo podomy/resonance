@@ -48,8 +48,9 @@ static TunSlot* slot_of_ip(TunMap* map, const uint8_t ip[4],
     return (NULL);
 }
 
-void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
-                 RadioParams* radio, NodeList* nodes) {
+static void pump(TunMap* map, int from_fd, MediumGrid* grid,
+                 RadioParams* radio, NodeList* nodes,
+                 bool drop_mcast) {
     uint8_t buf[2048];
     ssize_t n;
     TunSlot* from;
@@ -69,12 +70,34 @@ void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
     if (fn == NULL)
         return;
 
+    // Multicast goes blind in nomcast mode: mDNS
+    // discovery dies while unicast still flows.
+    // Overlay broadcast keeps the old behavior.
+    if ((buf[16] & 0xF0) == 0xE0) {
+        size_t i;
+
+        if (drop_mcast)
+            return;
+        for (i = 0; i < map->n; i++) {
+            TunSlot* peer = &map->slot[i];
+            Node* pn;
+
+            if (peer->fd == from_fd)
+                continue;
+            pn = nodelist_find(nodes, peer->node_id);
+            if (pn == NULL)
+                continue;
+            tun_forward(peer->fd, buf, (size_t)n, grid,
+                        radio, fn->x_nm, fn->y_nm, pn->x_nm,
+                        pn->y_nm);
+        }
+        return;
+    }
+
     // If broadcast address is specified we broadcast the
-    // message, Multicast is treated as broadcast until we
-    // implement an IGMP table.
-    if ((buf[16] == 10 && buf[17] == 0 && buf[18] == 0 &&
-         buf[19] == 255) ||
-        (buf[16] & 0xF0) == 0xE0) {
+    // message.
+    if (buf[16] == 10 && buf[17] == 0 && buf[18] == 0 &&
+        buf[19] == 255) {
         size_t i;
 
         for (i = 0; i < map->n; i++) {
@@ -104,6 +127,18 @@ void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
         return;
     tun_forward(to->fd, buf, (size_t)n, grid, radio,
                 fn->x_nm, fn->y_nm, tn->x_nm, tn->y_nm);
+}
+
+void tun_pump_fd(TunMap* map, int from_fd, MediumGrid* grid,
+                 RadioParams* radio, NodeList* nodes) {
+    pump(map, from_fd, grid, radio, nodes, false);
+}
+
+void tun_pump_fd_nomcast(TunMap* map, int from_fd,
+                         MediumGrid* grid,
+                         RadioParams* radio,
+                         NodeList* nodes) {
+    pump(map, from_fd, grid, radio, nodes, true);
 }
 
 bool tun_forward(int to_fd, const uint8_t* buf, size_t n,
