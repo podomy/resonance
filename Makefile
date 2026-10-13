@@ -129,6 +129,12 @@ bin/concord_nomem: check/concord_nomem.c $(SIM_SRCS) | bin
 bin/concord_update: check/concord_update.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+bin/concord_preempt: check/concord_preempt.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
+bin/concord_pinalarm: check/concord_pinalarm.c $(SIM_SRCS) | bin
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
 	./bin/heap_test
 	./bin/node_test
@@ -138,7 +144,7 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall bin/concord_anchor bin/concord_nomem bin/concord_update
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall bin/concord_anchor bin/concord_nomem bin/concord_update bin/concord_preempt bin/concord_pinalarm
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
@@ -170,6 +176,8 @@ check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/co
 	sudo ./bin/concord_anchor
 	sudo ./bin/concord_nomem
 	sudo ./bin/concord_update
+	sudo ./bin/concord_preempt
+	sudo ./bin/concord_pinalarm
 
 # deps/concord is a fetched upstream checkout, not a
 # working copy. Never edit it in place: push the change

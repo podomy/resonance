@@ -95,6 +95,10 @@ generation and re-pins.
 - `concord_rotate`: rotate one node's Noise key in
   place, peers re-pin at generation 1, mesh and workload
   converge after.
+- `concord_pinalarm`: a fresh key at the same generation
+  is rejected fleet-wide with the pin sticking; a
+  generation bump re-pins at generation 1 and workload
+  converges everywhere.
 
 ## Sync durability
 
@@ -139,6 +143,9 @@ strands healthy scheduling.
 - `concord_update`: a live workload bumped to a new image
   keeps its ID and assignment; the new image at epoch 1
   converges on all nodes.
+- `concord_preempt`: a guaranteed arrival that fits nowhere
+  evicts a best-effort workload, written as an unassignment
+  at epoch 1 or above.
 
 ## Out of scope
 
