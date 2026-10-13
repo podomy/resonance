@@ -136,6 +136,9 @@ strands healthy scheduling.
 - `concord_nomem`: a workload requesting more memory
   than any node holds reaches all nodes but never
   assigns, while a plain workload assigns and converges.
+- `concord_update`: a live workload bumped to a new image
+  keeps its ID and assignment; the new image at epoch 1
+  converges on all nodes.
 
 ## Out of scope
 
