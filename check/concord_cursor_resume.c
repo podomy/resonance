@@ -20,7 +20,7 @@
 #define HOLD_UP 8
 #define DEADLINE 300
 #define IMAGE "docker.io/library/nginx:alpine"
-#define NIL_UUID "00000000-0000-0000-000000000000"
+#define NIL_UUID "00000000-0000-0000-0000-000000000000"
 
 // concord_cursor_resume asserts a SIGKILLED node restarted
 // with the same dir resumes mid-history: identity,

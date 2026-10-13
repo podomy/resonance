@@ -19,7 +19,7 @@
 #define HOLD_STOPPED 10
 #define DEADLINE 300
 #define IMAGE "docker.io/library/nginx:alpine"
-#define NIL_UUID "00000000-0000-0000-000000000000"
+#define NIL_UUID "00000000-0000-0000-0000-000000000000"
 
 // concord_orphan_stop asserts a stop recorded on an
 // isolated owner beats the pair side reassignment at

@@ -18,7 +18,7 @@
 #define HOLD_SPLIT 90
 #define DEADLINE 300
 #define IMAGE "docker.io/library/nginx:alpine"
-#define NIL_UUID "00000000-0000-0000-000000000000"
+#define NIL_UUID "00000000-0000-0000-0000-000000000000"
 
 // concord_orphan_partition asserts a workload assigned
 // before a three-way split is orphaned on every
