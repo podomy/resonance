@@ -127,6 +127,16 @@ alone must mesh the fleet.
   Mesh plus workload convergence on the anchor path
   alone.
 
+## Placement
+
+The scheduler puts each workload where it fits, in class
+order, and refuses what fits nowhere. Refusal never
+strands healthy scheduling.
+
+- `concord_nomem`: a workload requesting more memory
+  than any node holds reaches all nodes but never
+  assigns, while a plain workload assigns and converges.
+
 ## Out of scope
 
 There is no Byzantine outsider scenario, by
