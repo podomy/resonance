@@ -5,3 +5,5 @@ certs/
 current.log
 *.o
 .cache/
+img/rootfs/probe
+img/rootfs/probe-check
