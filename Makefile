@@ -7,7 +7,7 @@ all: bin/resonance
 bin:
 	mkdir -p $@
 
-bin/resonance: main.c sim/sim.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c math/math.c tun/tun.c | bin
+bin/resonance: main.c sim/sim.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c math/math.c tun/tun.c img/img.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
 bin/heap_test: check/heap_test.c heap/heap.c | bin
@@ -32,6 +32,14 @@ bin/tun_drop: check/tun_drop.c tun/tun.c math/math.c world/world.c node/node.c |
 	$(CC) $(CFLAGS) -o $@ $^
 
 SIM_SRCS = sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c
+
+IMG_SRCS = img/img.c
+
+# img-build compiles the test image binaries into
+# img/rootfs. Fully offline: local static builds only.
+img-build:
+	mkdir -p img/rootfs
+	cd img && CGO_ENABLED=0 go build -o rootfs/probe ./probe.go && CGO_ENABLED=0 go build -o rootfs/probe-check ./check.go
 
 bin/cable: check/cable.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
@@ -135,6 +143,11 @@ bin/concord_preempt: check/concord_preempt.c $(SIM_SRCS) | bin
 bin/concord_pinalarm: check/concord_pinalarm.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
+# concord_img needs the test image binaries at run
+# time; img-build keeps img/rootfs stocked.
+bin/concord_img: check/concord_img.c $(SIM_SRCS) $(IMG_SRCS) | bin img-build
+	$(CC) $(CFLAGS) -o $@ $^
+
 check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
 	./bin/heap_test
 	./bin/node_test
@@ -144,7 +157,7 @@ check: bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test
 	./bin/tun_netns
 	./bin/tun_drop
 
-check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall bin/concord_anchor bin/concord_nomem bin/concord_update bin/concord_preempt bin/concord_pinalarm
+check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/concord_scale bin/concord_scale_churn bin/concord_workload bin/concord_bulk bin/concord_spam bin/concord_slow bin/concord_restart bin/concord_rotate bin/concord_mobile bin/concord_divergent bin/concord_killmidsync bin/concord_stop bin/concord_minority_stop bin/concord_flap bin/concord_killisolated bin/concord_splitbrain bin/concord_duel bin/concord_failover bin/concord_orphan bin/concord_orphan_partition bin/concord_orphan_stop bin/concord_cursor_resume bin/concord_catchup bin/concord_reinstall bin/concord_anchor bin/concord_nomem bin/concord_update bin/concord_preempt bin/concord_pinalarm bin/concord_img
 	$(MAKE) concord
 	sudo ./bin/concord_two
 	sudo ./bin/concord_partition
@@ -178,6 +191,7 @@ check-full: check bin/concord_two bin/concord_partition bin/concord_three bin/co
 	sudo ./bin/concord_update
 	sudo ./bin/concord_preempt
 	sudo ./bin/concord_pinalarm
+	sudo ./bin/concord_img
 
 # deps/concord is a fetched upstream checkout, not a
 # working copy. Never edit it in place: push the change

@@ -147,6 +147,20 @@ strands healthy scheduling.
   evicts a best-effort workload, written as an unassignment
   at epoch 1 or above.
 
+## Image supply
+
+Build, push, query, pull, and start form one chain:
+a submitted image must reach a running instance.
+
+- `concord_img`: the test image pushes into every
+  node's registry from inside its own namespace, each
+  catalog plus tag list reads back, the image submits
+  on node 0, and a running instance event lands
+  anywhere. Bundles live under STATEDIR on a
+  dev-capable filesystem: a nodev mount refuses every
+  device open, which reads exactly like a rule bug.
+  See `deps/concord/docs/nodev.md`.
+
 ## Out of scope
 
 There is no Byzantine outsider scenario, by
