@@ -139,7 +139,7 @@ int main(void) {
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    if (system("rm -rf /tmp/resonance") != 0) {
+    if (system("rm -rf " STATEDIR) != 0) {
         // Best effort cleanup, teardown already ran.
     }
 

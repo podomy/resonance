@@ -23,6 +23,66 @@ static int run(const char* cmd) {
     return (system(cmd) == 0);
 }
 
+// write_file stores s into path. Returns 1 on success.
+static int write_file(const char* path, const char* s) {
+    FILE* fp;
+
+    fp = fopen(path, "w");
+    if (fp == NULL)
+        return (0);
+    if (fputs(s, fp) == EOF) {
+        fclose(fp);
+        return (0);
+    }
+    return (fclose(fp) == 0);
+}
+
+// cgroup_place moves pid into
+// /sys/fs/cgroup/resonance/node<i>/daemon, creating the
+// subtree as needed. libcontainer derives container
+// cgroups from the parent of the daemon's own cgroup,
+// so the daemon sits one level deep and the per-node
+// parent stays empty for containers. Returns 1 on
+// success.
+static bool cgroup_place(int i, pid_t pid) {
+    char sub[128], leaf[160], target[192], spid[32];
+
+    if (mkdir("/sys/fs/cgroup/resonance", 0755) != 0 &&
+        errno != EEXIST)
+        return (false);
+    if (!write_file("/sys/fs/cgroup/resonance/"
+                     "cgroup.subtree_control",
+                     "+cpu +memory +pids"))
+        return (false);
+    snprintf(sub, sizeof(sub),
+             "/sys/fs/cgroup/resonance/node%d", i);
+    if (mkdir(sub, 0755) != 0 && errno != EEXIST)
+        return (false);
+    snprintf(target, sizeof(target),
+             "%s/cgroup.subtree_control", sub);
+    if (!write_file(target, "+cpu +memory +pids"))
+        return (false);
+    snprintf(leaf, sizeof(leaf), "%s/daemon", sub);
+    if (mkdir(leaf, 0755) != 0 && errno != EEXIST)
+        return (false);
+    snprintf(target, sizeof(target), "%s/cgroup.procs",
+             leaf);
+    snprintf(spid, sizeof(spid), "%d", (int)pid);
+    return (write_file(target, spid));
+}
+
+// cgroup_enter moves pid into its per-node cgroup.
+// Each daemon's containers derive cgroups from the
+// daemon's own; sharing one cgroup refuses creation as
+// non-empty. Best effort: warns and returns 1 when
+// unavailable so mesh-only runs never depend on it.
+static bool cgroup_enter(int i, pid_t pid) {
+    if (!cgroup_place(i, pid))
+        printf("sim: no per-node cgroup, containers may "
+               "collide\n");
+    return (true);
+}
+
 // open_in_ns opens a tun in another netns.
 static int open_in_ns(const char* ns, const char* ifname,
                       int* fd) {
@@ -93,6 +153,16 @@ bool sim_netns_teardown(int n) {
         run(cmd);
     }
     run("ip netns del net_namespace_nodeb 2>/dev/null");
+    // Drop per-node cgroups; rmdir only removes empty
+    // dirs, so strays fail silently here.
+    for (i = 0; i < n; i++) {
+        snprintf(cmd, sizeof(cmd),
+                 "rmdir /sys/fs/cgroup/resonance/node%d "
+                 "2>/dev/null",
+                 i);
+        run(cmd);
+    }
+    run("rmdir /sys/fs/cgroup/resonance 2>/dev/null");
     return (true);
 }
 
@@ -202,19 +272,19 @@ bool sim_addrs_up(int n) {
 static bool ensure_gossip_key(void) {
     struct stat st;
 
-    if (mkdir("/tmp/resonance", 0700) != 0 &&
+    if (mkdir(STATEDIR, 0700) != 0 &&
         errno != EEXIST) {
         return (false);
     }
-    if (stat("/tmp/resonance/gossip.key",
+    if (stat(STATEDIR "/gossip.key",
              &st) == 0 &&
         st.st_size == 32) {
         return (true);
     }
     if (!run("head -c 32 /dev/urandom > "
-             "/tmp/resonance/gossip.key && "
+             STATEDIR "/gossip.key && "
              "chmod 600 "
-             "/tmp/resonance/gossip.key")) {
+             STATEDIR "/gossip.key")) {
         return (false);
     }
     return (true);
@@ -239,7 +309,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
 
     // Per-node XDG_CONFIG_HOME.
     char dir[64];
-    snprintf(dir, sizeof(dir), "/tmp/resonance/node%d", i);
+    snprintf(dir, sizeof(dir), STATEDIR "/node%d", i);
     if (mkdir(dir, 0700) != 0 && errno != EEXIST)
         return (false);
 
@@ -276,7 +346,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
     if (!run(cmd))
         return (false);
     snprintf(cmd, sizeof(cmd),
-             "cp /tmp/resonance/gossip.key "
+             "cp " STATEDIR "/gossip.key "
              "%s/concord/memberservice/"
              "secret.key && chmod 600 "
              "%s/concord/memberservice/"
@@ -350,6 +420,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
     }
 
     close(pipedes[1]);
+    cgroup_enter(i, *pid);
     *logfd = pipedes[0];
     return (true);
 }
@@ -358,7 +429,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
 // all nodes. Mode 0700 matches certs.Dir(). EEXIST is
 // benign for idempotent setup.
 static bool ensure_parent(void) {
-    if (mkdir("/tmp/resonance", 0700) != 0 &&
+    if (mkdir(STATEDIR, 0700) != 0 &&
         errno != EEXIST) {
         return (false);
     }
@@ -415,7 +486,7 @@ bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
 bool sim_restart_concord(pid_t* pids, int* logfds, int i) {
     char dir[64], cmd[128];
 
-    snprintf(dir, sizeof(dir), "/tmp/resonance/node%d", i);
+    snprintf(dir, sizeof(dir), STATEDIR "/node%d", i);
     snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
     if (!run(cmd))
         return (false);
@@ -445,6 +516,26 @@ bool sim_spawn_concord_anchor(pid_t* pids, int* logfds,
         arg = (i == anchor_node) ? "--anchor" : NULL;
         if (!spawn_one(&pids[i], &logfds[i], i, NULL,
                        arg, anchor_node + 1))
+            return (false);
+    }
+    return (true);
+}
+
+// sim_spawn_concord_debug forks like sim_spawn_concord
+// but runs every node with debug logging. Voluminous:
+// diagnosis only, never the suite default.
+bool sim_spawn_concord_debug(pid_t* pids, int* logfds,
+                             int n) {
+    int i;
+
+    if (n < 1 || n > TUN_MAP_MAX)
+        return (false);
+    if (!ensure_parent())
+        return (false);
+
+    for (i = 0; i < n; i++) {
+        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
+                       "--log-level=debug", 0))
             return (false);
     }
     return (true);

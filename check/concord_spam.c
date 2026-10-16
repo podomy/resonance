@@ -55,7 +55,7 @@ static int submit_workload(int node, char* out, size_t n) {
     char id[64];
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload run " IMAGE " 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -83,7 +83,7 @@ static int stop_workload(int node, const char* id) {
     char buf[1024];
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload stop %s 2>/dev/null",
              node, id);
     fp = popen(cmd, "r");
@@ -110,7 +110,7 @@ static int nodes_alive(int node) {
     char* s;
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord node list 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -171,7 +171,7 @@ static void fetch_lists(char bufs[N][16384]) {
         size_t n;
 
         snprintf(cmd, sizeof(cmd),
-                 "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+                 "XDG_CONFIG_HOME=" STATEDIR "/node%d "
                  "./bin/concord workload list 2>/dev/null",
                  i);
         fp = popen(cmd, "r");
@@ -295,16 +295,16 @@ static void preserve_journals(int round) {
     char cmd[1024];
 
     snprintf(d, sizeof(d),
-             "/tmp/resonance-fail/spam-%ld-r%d",
+             "" STATEDIR "-fail/spam-%ld-r%d",
              (long)time(NULL), round);
     snprintf(cmd, sizeof(cmd),
              "mkdir -p %s && "
              "for i in 0 1 2; do "
              "mkdir -p %s/node$i/concord && "
-             "cp /tmp/resonance/node$i/concord/"
+             "cp " STATEDIR "/node$i/concord/"
              "journal.jsonl %s/node$i/concord/ "
              "2>/dev/null; "
-             "cp /tmp/resonance/node$i/concord/"
+             "cp " STATEDIR "/node$i/concord/"
              "config.json %s/node$i/concord/ "
              "2>/dev/null; done",
              d, d, d, d);
@@ -498,7 +498,7 @@ int main(void) {
     sim_netns_teardown(N);
     if (k < ROUNDS || !alive)
         preserve_journals(k);
-    if (system("rm -rf /tmp/resonance") != 0) {
+    if (system("rm -rf " STATEDIR) != 0) {
         // Best effort cleanup, teardown already ran.
     }
 

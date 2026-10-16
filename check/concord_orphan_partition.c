@@ -65,7 +65,7 @@ static int workload_present(int node, const char* shortid) {
     size_t n;
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload list 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -92,7 +92,7 @@ static int submit_workload(int node, char* out, size_t n) {
     char id[64];
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload run " IMAGE " 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -123,7 +123,7 @@ static int read_assignment(int node, const char* wid,
     char seg[64];
 
     snprintf(cmd, sizeof(cmd),
-             "grep '%s' /tmp/resonance/node%d/concord/"
+             "grep '%s' " STATEDIR "/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
              "'\"AssignedNodeID\":\"[^\"]*\"' | tail -1",
              wid, node);
@@ -152,7 +152,7 @@ static int assigned_anywhere(const char* wid) {
     int rc;
 
     snprintf(cmd, sizeof(cmd),
-             "grep -h '%s' /tmp/resonance/node*/concord/"
+             "grep -h '%s' " STATEDIR "/node*/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
              "'\"AssignedNodeID\":\"[^\"]*\"' | "
              "grep -v '%s' | grep -q .",
@@ -171,7 +171,7 @@ static int node_id(int i, char* out, size_t n) {
 
     snprintf(cmd, sizeof(cmd),
              "grep -o '\"id\":\"[^\"]*\"' "
-             "/tmp/resonance/node%d/concord/"
+             "" STATEDIR "/node%d/concord/"
              "config.json 2>/dev/null",
              i);
     fp = popen(cmd, "r");
@@ -243,7 +243,7 @@ static int copies(int node, const char* wid, char* out,
     size_t r;
 
     snprintf(cmd, sizeof(cmd),
-             "grep '%s' /tmp/resonance/node%d/concord/"
+             "grep '%s' " STATEDIR "/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
              "'\"AssignedNodeID\":\"[^\"]*\","
              "\"AssignmentEpoch\":[0-9][0-9]*' | "
@@ -298,7 +298,7 @@ static int author_assigned(int node, const char* wid) {
     if (!node_id(node, self, sizeof(self)))
         return (0);
     snprintf(cmd, sizeof(cmd),
-             "grep '%s' /tmp/resonance/node%d/concord/"
+             "grep '%s' " STATEDIR "/node%d/concord/"
              "journal.jsonl 2>/dev/null | grep "
              "'\"node_id\":\"%s\"' | grep -o "
              "'\"AssignedNodeID\":\"[^\"]*\"' | "
@@ -488,12 +488,12 @@ int main(void) {
         // Dump journals before cleanup: post-mortem
         // epoch evidence.
         if (system("cat "
-                   "/tmp/resonance/node*/concord/"
+                   "" STATEDIR "/node*/concord/"
                    "journal.jsonl 2>/dev/null") != 0) {
             // Best effort debug dump.
         }
     }
-    if (system("rm -rf /tmp/resonance") != 0) {
+    if (system("rm -rf " STATEDIR) != 0) {
         // Best effort cleanup, teardown already ran.
     }
 

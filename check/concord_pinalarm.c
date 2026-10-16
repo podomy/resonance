@@ -66,7 +66,7 @@ static int workload_present(int node, const char* shortid) {
     size_t n;
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload list 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -93,7 +93,7 @@ static int submit_workload(int node, char* out, size_t n) {
     char id[64];
 
     snprintf(cmd, sizeof(cmd),
-             "XDG_CONFIG_HOME=/tmp/resonance/node%d "
+             "XDG_CONFIG_HOME=" STATEDIR "/node%d "
              "./bin/concord workload run " IMAGE " 2>/dev/null",
              node);
     fp = popen(cmd, "r");
@@ -120,7 +120,7 @@ static int assigned_anywhere(const char* wid) {
     int rc;
 
     snprintf(cmd, sizeof(cmd),
-             "grep -h '%s' /tmp/resonance/node*/concord/"
+             "grep -h '%s' " STATEDIR "/node*/concord/"
              "journal.jsonl 2>/dev/null | grep -o "
              "'\"AssignedNodeID\":\"[^\"]*\"' | "
              "grep -v '%s' | grep -q .",
@@ -172,7 +172,7 @@ static int restart_node(pid_t* pids, int* logfds, int i,
     waitpid(pids[i], NULL, 0);
     close(logfds[i]);
     snprintf(dir, sizeof(dir),
-             "/tmp/resonance/node%d", i);
+             "" STATEDIR "/node%d", i);
     if (wipe_key) {
         snprintf(cmd, sizeof(cmd),
                  "rm -f %s/concord/noise/secret.key",
@@ -371,7 +371,7 @@ int main(void) {
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    if (system("rm -rf /tmp/resonance") != 0) {
+    if (system("rm -rf " STATEDIR) != 0) {
         // Best effort cleanup, teardown already ran.
     }
 

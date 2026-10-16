@@ -7,6 +7,12 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+// STATEDIR holds per-node homes. It must sit on a
+// dev-capable filesystem: container device nodes are
+// created inside bundles below it, and a nodev mount
+// (the /tmp tmpfs) refuses every device open.
+#define STATEDIR "/var/tmp/resonance"
+
 // sim_netns_setup creates one netns per extra node.
 bool sim_netns_setup(int n);
 
@@ -43,6 +49,12 @@ bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
 // every node config at it via anchors.
 bool sim_spawn_concord_anchor(pid_t* pids, int* logfds,
                               int n, int anchor_node);
+
+// sim_spawn_concord_debug forks like sim_spawn_concord
+// but runs every node with debug logging. Voluminous:
+// diagnosis only, never the suite default.
+bool sim_spawn_concord_debug(pid_t* pids, int* logfds,
+                             int n);
 
 // sim_restart_concord wipes node i for a fresh identity
 // and forks it again. Caller must have killed and reaped
