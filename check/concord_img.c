@@ -40,7 +40,9 @@ static void drain_tun(TunMap* map, MediumGrid* grid,
 }
 
 // drain_log scans one child line. Sets seen3 on peers:3.
-static void drain_log(int i, int fd, int* seen3) {
+// keep tee: child output mirrored for post-mortem.
+static void drain_log(int i, int fd, int* seen3,
+                      FILE* keep) {
     char buf[2048];
     ssize_t n;
 
@@ -51,6 +53,8 @@ static void drain_log(int i, int fd, int* seen3) {
     buf[n] = '\0';
     if (strstr(buf, "\"peers\":3") != NULL)
         *seen3 = 1;
+    if (keep != NULL)
+        fwrite(buf, 1, (size_t)n, keep);
 }
 
 // submit_workload runs workload run against node and
@@ -149,8 +153,9 @@ int main(void) {
     struct pollfd p[2 * N];
     int fds[N], logfds[N];
     pid_t pids[N];
+    FILE* keep[N];
     char wid[64], shortid[16];
-    int i, phase, seen3, done, alive;
+    int i, phase, seen3, done, alive, assigned;
     time_t t0, tcheck, start;
 
     // Unbuffered so piped logs stream live.
@@ -179,6 +184,13 @@ int main(void) {
         return (1);
     if (!sim_spawn_concord(pids, logfds, N))
         return (1);
+    for (i = 0; i < N; i++) {
+        char path[64];
+
+        snprintf(path, sizeof(path),
+                 STATEDIR "/check-node%d.log", i);
+        keep[i] = fopen(path, "w");
+    }
 
     for (i = 0; i < N; i++) {
         p[i].fd = fds[i];
@@ -194,6 +206,7 @@ int main(void) {
     tcheck = 0;
     wid[0] = '\0';
     shortid[0] = '\0';
+    assigned = 0;
     start = time(NULL);
     while (time(NULL) - start < DEADLINE) {
         if (poll(p, 2 * N, 100) > 0) {
@@ -202,7 +215,8 @@ int main(void) {
                     drain_tun(&map, &ctx.grid, &ctx.radio,
                               &ctx.nodes, fds[i]);
                 if (p[N + i].revents & POLLIN)
-                    drain_log(i, logfds[i], &seen3);
+                    drain_log(i, logfds[i], &seen3,
+                              keep[i]);
             }
         }
         if (phase == 0 && seen3 &&
@@ -245,6 +259,7 @@ int main(void) {
             tcheck = time(NULL);
             if (!assigned_anywhere(wid))
                 continue;
+            assigned = 1;
             if (running_anywhere(wid)) {
                 done = 1;
                 break;
@@ -266,18 +281,31 @@ int main(void) {
         waitpid(pids[i], NULL, 0);
         close(fds[i]);
         close(logfds[i]);
+        if (keep[i] != NULL)
+            fclose(keep[i]);
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    if (system("rm -rf " STATEDIR) != 0) {
-        // Best effort cleanup, teardown already ran.
-    }
 
     if (!done) {
+        // Failure forensics before cleanup: the
+        // daemon-side errors that decided the run.
+        if (system("grep -h '\"level\":\"error\"' "
+                   STATEDIR "/check-node*.log "
+                   "2>/dev/null | tail -n 15") != 0) {
+            // Best effort, logs may be absent.
+        }
         fprintf(stderr,
-                "concord_img: fail phase=%d workload %s\n",
-                phase, shortid);
+                "concord_img: fail phase=%d assigned=%d "
+                "workload %s\n",
+                phase, assigned, shortid);
+        if (system("rm -rf " STATEDIR) != 0) {
+            // Best effort cleanup, teardown ran.
+        }
         return (1);
+    }
+    if (system("rm -rf " STATEDIR) != 0) {
+        // Best effort cleanup, teardown already ran.
     }
     return (0);
 }
