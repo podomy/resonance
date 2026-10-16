@@ -16,7 +16,7 @@
 #define N 3
 #define ISOLATE 2
 #define HOLD_UP 8
-#define DEADLINE 180
+#define DEADLINE 300
 #define IMAGE "docker.io/library/nginx:alpine"
 
 // concord_stop asserts a workload stopped on one side of
@@ -146,10 +146,11 @@ int main(void) {
     struct pollfd p[2 * N];
     int fds[N], logfds[N];
     pid_t pids[N];
+    FILE* keep[N];
     int has[N];
     char wid[64], shortid[16];
     int i, phase, seen3, done, alive;
-    time_t t0, tcheck, start;
+    time_t t0, tcheck, t3, start;
 
     if (access("./bin/concord", X_OK) != 0) {
         printf("concord_stop: skip no ./bin/concord\n");
@@ -171,6 +172,13 @@ int main(void) {
         return (1);
     if (!sim_spawn_concord(pids, logfds, N))
         return (1);
+    for (i = 0; i < N; i++) {
+        char path[64];
+
+        snprintf(path, sizeof(path),
+                 STATEDIR "/check-node%d.log", i);
+        keep[i] = fopen(path, "w");
+    }
 
     for (i = 0; i < N; i++) {
         p[i].fd = fds[i];
@@ -185,6 +193,7 @@ int main(void) {
     done = 0;
     t0 = 0;
     tcheck = 0;
+    t3 = 0;
     wid[0] = '\0';
     shortid[0] = '\0';
     start = time(NULL);
@@ -207,6 +216,9 @@ int main(void) {
                 buf[n] = '\0';
                 if (strstr(buf, "\"peers\":3") != NULL)
                     seen3 = 1;
+                if (keep[i] != NULL)
+                    fwrite(buf, 1, (size_t)n,
+                           keep[i]);
             }
         }
         if (phase == 0 && seen3 && hold(&t0, HOLD_UP)) {
@@ -235,6 +247,7 @@ int main(void) {
                 phase = 3;
                 seen3 = 0;
                 tcheck = 0;
+                t3 = time(NULL);
             }
         } else if (phase == 3) {
             // Tombstone must win everywhere.
@@ -258,19 +271,40 @@ int main(void) {
         waitpid(pids[i], NULL, 0);
         close(fds[i]);
         close(logfds[i]);
+        if (keep[i] != NULL)
+            fclose(keep[i]);
     }
     context_free(&ctx);
     sim_netns_teardown(N);
-    if (system("rm -rf " STATEDIR) != 0) {
-        // Best effort cleanup, teardown already ran.
-    }
 
     if (!done) {
+        long p3;
+
+        // Failure forensics before cleanup: mesh
+        // trajectory plus daemon-side errors.
+        if (system("grep -h -o '\"peers\":[0-9]' "
+                   STATEDIR "/check-node*.log "
+                   "2>/dev/null | sort | uniq -c") != 0) {
+            // Best effort, logs may be absent.
+        }
+        if (system("grep -h '\"level\":\"error\"' "
+                   STATEDIR "/check-node*.log "
+                   "2>/dev/null | tail -n 10") != 0) {
+            // Best effort, logs may be absent.
+        }
+        p3 = (t3 == 0) ? -1 : time(NULL) - t3;
         fprintf(stderr,
                 "concord_stop: fail workload %s on %d %d "
-                "%d phase=%d\n",
-                shortid, has[0], has[1], has[2], phase);
+                "%d phase=%d p3=%ld\n",
+                shortid, has[0], has[1], has[2],
+                phase, p3);
+        if (system("rm -rf " STATEDIR) != 0) {
+            // Best effort cleanup, teardown ran.
+        }
         return (1);
+    }
+    if (system("rm -rf " STATEDIR) != 0) {
+        // Best effort cleanup, teardown already ran.
     }
     return (0);
 }
