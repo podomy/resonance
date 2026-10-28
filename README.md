@@ -23,6 +23,12 @@ make log                # run demo, tee output to current.log
 make clean              # remove binaries and test artifacts
 ```
 
+### Documentation
+
+Start at [docs/overview.md](./docs/overview.md). It explains the six
+layers every scenario is built from, one file per layer, plus a
+separate note on test speed (`docs/speed.md`).
+
 ### Contributing
 
 Discuss your change with the engineering team at [contact@podomy.com](mailto:contact@podomy.com) before opening a PR in order not to waste anybody's effort or time.
