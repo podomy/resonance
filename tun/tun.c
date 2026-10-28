@@ -14,7 +14,7 @@ bool tun_map_add(TunMap* map, int fd, const uint8_t ip[4],
                  uint64_t node_id) {
     TunSlot* s;
 
-    if (map == NULL || ip == NULL || fd < 0)
+    if (map == nullptr || ip == nullptr || fd < 0)
         return (false);
     if (map->n >= TUN_MAP_MAX)
         return (false);
@@ -32,7 +32,7 @@ static TunSlot* slot_of_fd(TunMap* map, int fd) {
     for (i = 0; i < map->n; i++)
         if (map->slot[i].fd == fd)
             return (&map->slot[i]);
-    return (NULL);
+    return (nullptr);
 }
 
 static TunSlot* slot_of_ip(TunMap* map, const uint8_t ip[4],
@@ -45,7 +45,7 @@ static TunSlot* slot_of_ip(TunMap* map, const uint8_t ip[4],
         if (memcmp(map->slot[i].ip, ip, 4) == 0)
             return (&map->slot[i]);
     }
-    return (NULL);
+    return (nullptr);
 }
 
 static void pump(TunMap* map, int from_fd, MediumGrid* grid,
@@ -56,18 +56,18 @@ static void pump(TunMap* map, int from_fd, MediumGrid* grid,
     TunSlot* from;
     Node* fn;
 
-    if (map == NULL || grid == NULL || radio == NULL ||
-        nodes == NULL)
+    if (map == nullptr || grid == nullptr || radio == nullptr ||
+        nodes == nullptr)
         return;
     n = read(from_fd, buf, sizeof(buf));
     if (n < 20 || (buf[0] >> 4) != 4)
         return;
 
     from = slot_of_fd(map, from_fd);
-    if (from == NULL)
+    if (from == nullptr)
         return;
     fn = nodelist_find(nodes, from->node_id);
-    if (fn == NULL)
+    if (fn == nullptr)
         return;
 
     // Multicast goes blind in nomcast mode: mDNS
@@ -85,7 +85,7 @@ static void pump(TunMap* map, int from_fd, MediumGrid* grid,
             if (peer->fd == from_fd)
                 continue;
             pn = nodelist_find(nodes, peer->node_id);
-            if (pn == NULL)
+            if (pn == nullptr)
                 continue;
             tun_forward(peer->fd, buf, (size_t)n, grid,
                         radio, fn->x_nm, fn->y_nm, pn->x_nm,
@@ -107,7 +107,7 @@ static void pump(TunMap* map, int from_fd, MediumGrid* grid,
             if (peer->fd == from_fd)
                 continue;
             pn = nodelist_find(nodes, peer->node_id);
-            if (pn == NULL)
+            if (pn == nullptr)
                 continue;
             tun_forward(peer->fd, buf, (size_t)n, grid,
                         radio, fn->x_nm, fn->y_nm, pn->x_nm,
@@ -120,10 +120,10 @@ static void pump(TunMap* map, int from_fd, MediumGrid* grid,
     Node* tn;
 
     to = slot_of_ip(map, &buf[16], from_fd);
-    if (to == NULL)
+    if (to == nullptr)
         return;
     tn = nodelist_find(nodes, to->node_id);
-    if (tn == NULL)
+    if (tn == nullptr)
         return;
     tun_forward(to->fd, buf, (size_t)n, grid, radio,
                 fn->x_nm, fn->y_nm, tn->x_nm, tn->y_nm);
@@ -149,7 +149,7 @@ bool tun_forward(int to_fd, const uint8_t* buf, size_t n,
     RadioPath rp;
     ssize_t w;
 
-    if (to_fd < 0 || buf == NULL || n == 0)
+    if (to_fd < 0 || buf == nullptr || n == 0)
         return (false);
     if (!radio_path(grid, radio, ax_nm, ay_nm, bx_nm, by_nm,
                     &rp))
@@ -163,7 +163,7 @@ bool open_tun_file(const char* name, int* fd) {
     struct ifreq ifr;
     size_t n;
 
-    if (name == NULL || fd == NULL)
+    if (name == nullptr || fd == nullptr)
         return (false);
 
     fd_internal = open("/dev/net/tun", O_RDWR);

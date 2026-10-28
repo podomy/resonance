@@ -8,7 +8,7 @@
  * fires the callback of a since-removed node.
  */
 
-// Listener for (node_id, port), or NULL.
+// Listener for (node_id, port), or nullptr.
 static EventCallback bind_of(Context* ctx, uint64_t node_id,
                              uint16_t port) {
     size_t i;
@@ -18,7 +18,7 @@ static EventCallback bind_of(Context* ctx, uint64_t node_id,
             ctx->udp_binds[i].port == port)
             return (ctx->udp_binds[i].cb);
     }
-    return (NULL);
+    return (nullptr);
 }
 
 // Demux a delivered datagram to the bound callback.
@@ -31,7 +31,7 @@ on_udp_datagram(Context* ctx, Timestamp timestamp,
     EventCallback cb;
 
     cb = bind_of(ctx, to_id, dst_port);
-    if (cb == NULL)
+    if (cb == nullptr)
         return;
     cb(ctx, timestamp, seq, payload, payload_len, from_id,
        to_id, src_port, dst_port);
@@ -40,11 +40,11 @@ on_udp_datagram(Context* ctx, Timestamp timestamp,
 // Register one listener. Port 0 is invalid.
 bool udp_bind(Context* ctx, uint64_t node_id, uint16_t port,
               EventCallback cb) {
-    if (ctx == NULL || cb == NULL || port == 0)
+    if (ctx == nullptr || cb == nullptr || port == 0)
         return (false);
-    if (context_find_node(ctx, node_id) == NULL)
+    if (context_find_node(ctx, node_id) == nullptr)
         return (false);
-    if (bind_of(ctx, node_id, port) != NULL)
+    if (bind_of(ctx, node_id, port) != nullptr)
         return (false);
     if (ctx->udp_bind_n >= UDP_BIND_MAX)
         return (false);
@@ -64,11 +64,11 @@ bool udp_send(Context* ctx, uint64_t from_id,
     RadioPath path;
     uint64_t arrive;
 
-    if (ctx == NULL || src_port == 0 || dst_port == 0)
+    if (ctx == nullptr || src_port == 0 || dst_port == 0)
         return (false);
     from = context_find_node(ctx, from_id);
     to = context_find_node(ctx, to_id);
-    if (from == NULL || to == NULL)
+    if (from == nullptr || to == nullptr)
         return (false);
     if (!radio_path(&ctx->grid, &ctx->radio, from->x_nm,
                     from->y_nm, to->x_nm, to->y_nm, &path))
@@ -85,9 +85,9 @@ bool udp_mcast(Context* ctx, uint64_t from_id,
                const uint8_t* buf, uint64_t len) {
     size_t i;
 
-    if (ctx == NULL || src_port == 0 || dst_port == 0)
+    if (ctx == nullptr || src_port == 0 || dst_port == 0)
         return (false);
-    if (context_find_node(ctx, from_id) == NULL)
+    if (context_find_node(ctx, from_id) == nullptr)
         return (false);
     for (i = 0; i < ctx->nodes.len; i++) {
         uint64_t id = ctx->nodes.data[i].id;

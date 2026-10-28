@@ -7,7 +7,6 @@
 #include "../udp/udp.h"
 #include "../world/world.h"
 #include "events.h"
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 

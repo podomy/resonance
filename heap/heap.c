@@ -18,18 +18,18 @@ static bool event_before(const Event* a, const Event* b) {
     return a->sequence_number < b->sequence_number;
 }
 
-// Allocates a min-heap. Returns NULL on allocation failure.
+// Allocates a min-heap. Returns nullptr on allocation failure.
 MinHeap* heap_create(size_t capacity) {
     MinHeap* h = malloc(sizeof(*h));
-    if (h == NULL) {
-        return NULL;
+    if (h == nullptr) {
+        return nullptr;
     }
-    h->data = NULL;
+    h->data = nullptr;
     if (capacity > 0) {
         h->data = malloc(capacity * sizeof(*h->data));
-        if (h->data == NULL) {
+        if (h->data == nullptr) {
             free(h);
-            return NULL;
+            return nullptr;
         }
     }
     h->size = 0;
@@ -37,9 +37,9 @@ MinHeap* heap_create(size_t capacity) {
     return h;
 }
 
-// Releases heap storage. Safe on NULL.
+// Releases heap storage. Safe on nullptr.
 void heap_free(MinHeap* h) {
-    if (h == NULL) {
+    if (h == nullptr) {
         return;
     }
     free(h->data);
@@ -48,7 +48,7 @@ void heap_free(MinHeap* h) {
 
 // Inserts value. Returns false on allocation failure.
 bool heap_push(MinHeap* h, Event value) {
-    if (h == NULL) {
+    if (h == nullptr) {
         return false;
     }
 
@@ -67,7 +67,7 @@ bool heap_push(MinHeap* h, Event value) {
         }
         Event* grown = realloc(
             h->data, new_capacity * sizeof(*h->data));
-        if (grown == NULL) {
+        if (grown == nullptr) {
             return false;
         }
         h->data = grown;
@@ -92,7 +92,7 @@ bool heap_push(MinHeap* h, Event value) {
 
 // Removes the next event. Returns false if empty.
 bool heap_pop(MinHeap* h, Event* out) {
-    if (h == NULL || out == NULL || h->size == 0) {
+    if (h == nullptr || out == nullptr || h->size == 0) {
         return false;
     }
 

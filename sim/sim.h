@@ -3,7 +3,6 @@
 
 #include "../shared/context.h"
 #include "../tun/tun.h"
-#include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
 

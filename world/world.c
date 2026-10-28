@@ -7,8 +7,8 @@ bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
                      uint64_t nx, uint64_t ny,
                      Material fill) {
     uint64_t n;
-    if (grid == NULL || cell_nm == 0 || nx == 0 ||
-        ny == 0 || grid->cells != NULL) {
+    if (grid == nullptr || cell_nm == 0 || nx == 0 ||
+        ny == 0 || grid->cells != nullptr) {
         return false;
     }
     if (nx > UINT64_MAX / ny) {
@@ -19,7 +19,7 @@ bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
         return false;
     }
     grid->cells = malloc(n * sizeof(*grid->cells));
-    if (grid->cells == NULL) {
+    if (grid->cells == nullptr) {
         return false;
     }
     grid->cell_nm = cell_nm;
@@ -34,11 +34,11 @@ bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
 }
 
 bool mediumgrid_free(MediumGrid* grid) {
-    if (grid == NULL) {
+    if (grid == nullptr) {
         return false;
     }
     free(grid->cells);
-    grid->cells = NULL;
+    grid->cells = nullptr;
     grid->nx = 0;
     grid->ny = 0;
     grid->cell_nm = 0;
@@ -59,7 +59,7 @@ static const uint64_t k_c_nm_per_ns[MATERIAL_COUNT] = {
 
 // Writes unreachable into rp.
 static bool blocked(RadioPath* rp) {
-    if (rp != NULL) {
+    if (rp != nullptr) {
         rp->reachable = false;
         rp->delay_ns = 0;
     }
@@ -139,8 +139,8 @@ bool radio_path(const MediumGrid* grid,
     unsigned __int128 d2, r2;
     uint64_t delay_ns;
 
-    if (grid == NULL || params == NULL || rp == NULL ||
-        grid->cells == NULL || grid->cell_nm == 0) {
+    if (grid == nullptr || params == nullptr || rp == nullptr ||
+        grid->cells == nullptr || grid->cell_nm == 0) {
         return blocked(rp);
     }
     // Keeps the squares inside 128 bits.

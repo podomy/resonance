@@ -28,7 +28,7 @@ static int write_file(const char* path, const char* s) {
     FILE* fp;
 
     fp = fopen(path, "w");
-    if (fp == NULL)
+    if (fp == nullptr)
         return (0);
     if (fputs(s, fp) == EOF) {
         fclose(fp);
@@ -201,7 +201,7 @@ bool sim_nodes_add(Context* ctx, TunMap* map, int* fds,
     ip[1] = 168;
     ip[2] = 100;
     for (i = 0; i < n; i++) {
-        int64_t x = (int64_t)i * 1000000000LL;
+        int64_t x = (int64_t)i * 1'000'000'000LL;
         ip[3] = (uint8_t)(i + 1);
         if (!context_add_node(ctx, x, 0, 0, 0, &id))
             return (false);
@@ -292,9 +292,9 @@ static bool ensure_gossip_key(void) {
 
 // spawn_one seeds node i and forks it. Stores pid and
 // logfd. Parent config root must exist. clock_offset is
-// the CONCORD_CLOCK_OFFSET value for this node, or NULL
+// the CONCORD_CLOCK_OFFSET value for this node, or nullptr
 // for true time. anchor_arg is an extra daemon argv
-// entry (e.g. "--anchor") or NULL. anchor_octet adds an
+// entry (e.g. "--anchor") or nullptr. anchor_octet adds an
 // anchors entry for 192.168.100.anchor_octet:7946 to
 // every node config when nonzero.
 static bool spawn_one(pid_t* pid, int* logfd, int i,
@@ -385,7 +385,7 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
         return (false);
     if (*pid == 0) {
         setenv("XDG_CONFIG_HOME", dir, 1);
-        if (clock_offset != NULL) {
+        if (clock_offset != nullptr) {
             setenv("CONCORD_CLOCK_OFFSET", clock_offset,
                    1);
         }
@@ -409,12 +409,12 @@ static bool spawn_one(pid_t* pid, int* logfd, int i,
         close(pipedes[0]);
         close(pipedes[1]);
 
-        if (anchor_arg != NULL) {
+        if (anchor_arg != nullptr) {
             execl("./bin/concord", "concord", anchor_arg,
-                  (char*)NULL);
+                  (char*)nullptr);
         } else {
             execl("./bin/concord", "concord",
-                  (char*)NULL);
+                  (char*)nullptr);
         }
         _exit(127);
     }
@@ -447,8 +447,8 @@ bool sim_spawn_concord(pid_t* pids, int* logfds, int n) {
         return (false);
 
     for (i = 0; i < n; i++) {
-        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
-                       NULL, 0))
+        if (!spawn_one(&pids[i], &logfds[i], i, nullptr,
+                       nullptr, 0))
             return (false);
     }
     return (true);
@@ -472,9 +472,9 @@ bool sim_spawn_concord_skew(pid_t* pids, int* logfds, int n,
     for (i = 0; i < n; i++) {
         const char* off;
 
-        off = (i == skew_node) ? offset : NULL;
+        off = (i == skew_node) ? offset : nullptr;
         if (!spawn_one(&pids[i], &logfds[i], i, off,
-                       NULL, 0))
+                       nullptr, 0))
             return (false);
     }
     return (true);
@@ -490,8 +490,8 @@ bool sim_restart_concord(pid_t* pids, int* logfds, int i) {
     snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
     if (!run(cmd))
         return (false);
-    return (spawn_one(&pids[i], &logfds[i], i, NULL,
-                      NULL, 0));
+    return (spawn_one(&pids[i], &logfds[i], i, nullptr,
+                      nullptr, 0));
 }
 
 // sim_spawn_concord_anchor forks like sim_spawn_concord
@@ -513,8 +513,8 @@ bool sim_spawn_concord_anchor(pid_t* pids, int* logfds,
     for (i = 0; i < n; i++) {
         const char* arg;
 
-        arg = (i == anchor_node) ? "--anchor" : NULL;
-        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
+        arg = (i == anchor_node) ? "--anchor" : nullptr;
+        if (!spawn_one(&pids[i], &logfds[i], i, nullptr,
                        arg, anchor_node + 1))
             return (false);
     }
@@ -534,7 +534,7 @@ bool sim_spawn_concord_debug(pid_t* pids, int* logfds,
         return (false);
 
     for (i = 0; i < n; i++) {
-        if (!spawn_one(&pids[i], &logfds[i], i, NULL,
+        if (!spawn_one(&pids[i], &logfds[i], i, nullptr,
                        "--log-level=debug", 0))
             return (false);
     }

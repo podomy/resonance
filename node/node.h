@@ -1,7 +1,7 @@
 #ifndef NODE_H
 #define NODE_H
 
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -43,10 +43,10 @@ bool nodelist_init(NodeList* list, size_t initial_cap);
 // Add a node. Records by_id.data[node.id].
 bool nodelist_push(NodeList* list, Node node);
 
-// Free the memory when done. False if list is NULL.
+// Free the memory when done. False if list is nullptr.
 bool nodelist_free(NodeList* list);
 
-// Live node with this id, or NULL.
+// Live node with this id, or nullptr.
 Node* nodelist_find(NodeList* list, uint64_t id);
 
 // Swap-remove the node at index. Updates the directory.

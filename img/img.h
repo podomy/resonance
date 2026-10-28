@@ -1,8 +1,9 @@
 #ifndef IMG_H
 #define IMG_H
 
-#include <stdbool.h>
 #include <stddef.h>
+
+static constexpr int IMG_PORT = 8444;
 
 // Test image supply for scenarios that need running
 // containers. Everything here is local bytes and local
@@ -22,8 +23,6 @@
 // Scenarios push once per node, poll the queries while
 // pumping, then submit localhost:8444/<repo>:<tag> and
 // let each node pull from itself.
-
-#define IMG_PORT 8444
 
 // img_push tars rootfs_dir and pushes it as repo:tag
 // into node i's registry. Returns 1 on success.

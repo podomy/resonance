@@ -15,7 +15,7 @@ static int run(const char* cmd) {
 // returns 0. Silent otherwise: scenarios stay quiet,
 // probes set IMG_DEBUG for post-mortems.
 static int fail(const char* step) {
-    if (getenv("IMG_DEBUG") != NULL)
+    if (getenv("IMG_DEBUG") != nullptr)
         printf("[img] %s failed\n", step);
     return (0);
 }
@@ -38,9 +38,9 @@ static int read_line(const char* cmd, char* out,
     size_t len;
 
     fp = popen(cmd, "r");
-    if (fp == NULL)
+    if (fp == nullptr)
         return (0);
-    if (fgets(out, n, fp) == NULL) {
+    if (fgets(out, n, fp) == nullptr) {
         pclose(fp);
         return (0);
     }
@@ -171,7 +171,7 @@ static int put_manifest(int node, const char* repo,
     for (tries = 0; tries < 4; tries++) {
         if (run(cmd))
             return (1);
-        if (getenv("IMG_DEBUG") != NULL) {
+        if (getenv("IMG_DEBUG") != nullptr) {
             char out[16];
             char txt[256];
             char dump[512];
@@ -205,7 +205,7 @@ static int write_text(const char* path, const char* s) {
     FILE* fp;
 
     fp = fopen(path, "w");
-    if (fp == NULL)
+    if (fp == nullptr)
         return (0);
     if (fputs(s, fp) == EOF) {
         fclose(fp);
@@ -223,11 +223,11 @@ bool img_push(int node, const char* repo, const char* tag,
     char configjson[1024], manifestjson[2048];
     size_t layersz, configsz;
 
-    if (node < 0 || node > 253 || repo == NULL ||
-        tag == NULL || rootfs == NULL)
+    if (node < 0 || node > 253 || repo == nullptr ||
+        tag == nullptr || rootfs == nullptr)
         return (false);
-    if (strchr(repo, '/') != NULL ||
-        strchr(tag, '/') != NULL)
+    if (strchr(repo, '/') != nullptr ||
+        strchr(tag, '/') != nullptr)
         return (false);
     snprintf(layer, sizeof(layer),
              "/tmp/resonance-img-%d-%s-%s-layer.tar",
@@ -310,7 +310,7 @@ static int get_body(int node, const char* path,
              "\"http://127.0.0.1:%d%s\" 2>/dev/null",
              ns, extra, IMG_PORT, path);
     fp = popen(cmd, "r");
-    if (fp == NULL)
+    if (fp == nullptr)
         return (0);
     len = 0;
     while ((r = fread(out + len, 1, n - len - 1,
@@ -331,8 +331,8 @@ bool img_present(int node, const char* repo,
     char ns[64];
     char cmd[1024];
 
-    if (node < 0 || node > 253 || repo == NULL ||
-        tag == NULL)
+    if (node < 0 || node > 253 || repo == nullptr ||
+        tag == nullptr)
         return (false);
     ns_prefix(node, ns, sizeof(ns));
     snprintf(cmd, sizeof(cmd),
@@ -348,7 +348,7 @@ bool img_present(int node, const char* repo,
 // img_catalog stores node i's repository list into out.
 // Returns 1 on success.
 bool img_catalog(int node, char* out, size_t n) {
-    if (out == NULL || n == 0)
+    if (out == nullptr || n == 0)
         return (false);
     return (get_body(node, "/v2/_catalog", "", out, n));
 }
@@ -359,7 +359,7 @@ bool img_tags(int node, const char* repo, char* out,
               size_t n) {
     char path[256];
 
-    if (repo == NULL || out == NULL || n == 0)
+    if (repo == nullptr || out == nullptr || n == 0)
         return (false);
     snprintf(path, sizeof(path), "/v2/%s/tags/list",
              repo);

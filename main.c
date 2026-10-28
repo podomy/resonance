@@ -17,10 +17,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#define N 3
-#define HOLD_UP 8
-#define HOLD_RUN 180
-#define DEADLINE 600
+static constexpr int N = 3;
+static constexpr int HOLD_UP = 8;
+static constexpr int HOLD_RUN = 180;
+static constexpr int DEADLINE = 600;
 #define IMG_REF "localhost:8444/concord-test:latest"
 #define IMG_ROOTFS "img/rootfs"
 #define NIL_UUID "00000000-0000-0000-0000-000000000000"
@@ -50,7 +50,7 @@ static void drain_log(int i, int fd, int* seen3) {
         return;
     buf[n] = '\0';
     printf("\033[%dm[node %d]\033[0m %s", 36 + i, i, buf);
-    if (strstr(buf, "\"peers\":3") != NULL)
+    if (strstr(buf, "\"peers\":3") != nullptr)
         *seen3 = 1;
 }
 
@@ -68,9 +68,9 @@ static int submit_workload(int node, char* out, size_t n) {
              " 2>/dev/null",
              node);
     fp = popen(cmd, "r");
-    if (fp == NULL)
+    if (fp == nullptr)
         return (0);
-    if (fgets(buf, sizeof(buf), fp) == NULL) {
+    if (fgets(buf, sizeof(buf), fp) == nullptr) {
         pclose(fp);
         return (0);
     }
@@ -166,10 +166,10 @@ static void bpf_progs(const char* wid) {
 // hold arms t0 on first call, fires secs later.
 static int hold(time_t* t0, int secs) {
     if (*t0 == 0) {
-        *t0 = time(NULL);
+        *t0 = time(nullptr);
         return (0);
     }
-    return (time(NULL) - *t0 >= secs);
+    return (time(nullptr) - *t0 >= secs);
 }
 
 // stocked reports 1 if every node's catalog lists the
@@ -182,13 +182,13 @@ static int stocked(void) {
         if (!img_catalog(i, buf, sizeof(buf)))
             return (0);
         printf("[seed node %d] catalog %s\n", i, buf);
-        if (strstr(buf, "concord-test") == NULL)
+        if (strstr(buf, "concord-test") == nullptr)
             return (0);
         if (!img_tags(i, "concord-test", buf,
                       sizeof(buf)))
             return (0);
         printf("[seed node %d] tags %s\n", i, buf);
-        if (strstr(buf, "latest") == NULL)
+        if (strstr(buf, "latest") == nullptr)
             return (0);
     }
     return (1);
@@ -205,7 +205,7 @@ int main(void) {
     time_t t0, tcheck, start;
 
     // Unbuffered so piped logs stream live.
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdout, nullptr, _IONBF, 0);
     setenv("IMG_DEBUG", "1", 1);
     if (access("./bin/concord", X_OK) != 0) {
         printf("resonance: skip no ./bin/concord\n");
@@ -245,8 +245,8 @@ int main(void) {
     tcheck = 0;
     wid[0] = '\0';
     shortid[0] = '\0';
-    start = time(NULL);
-    while (time(NULL) - start < DEADLINE) {
+    start = time(nullptr);
+    while (time(nullptr) - start < DEADLINE) {
         if (poll(p, 2 * N, 100) > 0) {
             for (i = 0; i < N; i++) {
                 if (p[i].revents & POLLIN)
@@ -289,10 +289,10 @@ int main(void) {
             tcheck = 0;
         } else if (phase == 1 &&
                    (tcheck == 0 ||
-                    time(NULL) - tcheck >= 5)) {
+                    time(nullptr) - tcheck >= 5)) {
             // Read back every catalog plus tag list,
             // then submit the image on node 0.
-            tcheck = time(NULL);
+            tcheck = time(nullptr);
             if (!stocked())
                 continue;
             if (submit_workload(0, wid, sizeof(wid))) {
@@ -309,11 +309,11 @@ int main(void) {
             }
         } else if (phase == 2 &&
                    (tcheck == 0 ||
-                    time(NULL) - tcheck >= 2)) {
+                    time(nullptr) - tcheck >= 2)) {
             // Submitted and assigned. Wait for a running
             // instance anywhere. Backstop reports a
             // container that never starts.
-            tcheck = time(NULL);
+            tcheck = time(nullptr);
             bpf_progs(wid);
             if (system("echo -n 'cgwatch '; cat "
                        "/sys/fs/cgroup/resonance/node*/"
@@ -332,7 +332,7 @@ int main(void) {
         }
         alive = 0;
         for (i = 0; i < N; i++) {
-            if (waitpid(pids[i], NULL, WNOHANG) == 0)
+            if (waitpid(pids[i], nullptr, WNOHANG) == 0)
                 alive = 1;
         }
         if (!alive)
@@ -341,7 +341,7 @@ int main(void) {
 
     for (i = 0; i < N; i++) {
         kill(pids[i], SIGTERM);
-        waitpid(pids[i], NULL, 0);
+        waitpid(pids[i], nullptr, 0);
         close(fds[i]);
         close(logfds[i]);
     }

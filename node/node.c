@@ -25,7 +25,7 @@ static bool ensure_index_cap(IdIndex* by_id, uint64_t id) {
 
     size_t* grown =
         realloc(by_id->data, new_cap * sizeof(*grown));
-    if (grown == NULL) {
+    if (grown == nullptr) {
         return false;
     }
     for (size_t i = by_id->cap; i < new_cap; i++) {
@@ -38,7 +38,7 @@ static bool ensure_index_cap(IdIndex* by_id, uint64_t id) {
 
 // Initialize the list with initial capacity.
 bool nodelist_init(NodeList* list, size_t initial_cap) {
-    if (list == NULL) {
+    if (list == nullptr) {
         return false;
     }
     if (initial_cap == 0) {
@@ -46,20 +46,20 @@ bool nodelist_init(NodeList* list, size_t initial_cap) {
     }
 
     list->data = malloc(initial_cap * sizeof(*list->data));
-    if (list->data == NULL) {
+    if (list->data == nullptr) {
         return false;
     }
 
     list->len = 0;
     list->cap = initial_cap;
-    list->by_id.data = NULL;
+    list->by_id.data = nullptr;
     list->by_id.cap = 0;
     return true;
 }
 
 // Add a node. Records by_id.data[node.id].
 bool nodelist_push(NodeList* list, Node node) {
-    if (list == NULL) {
+    if (list == nullptr) {
         return false;
     }
     if (!ensure_index_cap(&list->by_id, node.id)) {
@@ -83,7 +83,7 @@ bool nodelist_push(NodeList* list, Node node) {
         }
         Node* new_data = realloc(
             list->data, new_cap * sizeof(*list->data));
-        if (new_data == NULL) {
+        if (new_data == nullptr) {
             return false;
         }
         list->data = new_data;
@@ -97,32 +97,32 @@ bool nodelist_push(NodeList* list, Node node) {
     return true;
 }
 
-// Free the memory when done. False if list is NULL.
+// Free the memory when done. False if list is nullptr.
 bool nodelist_free(NodeList* list) {
-    if (list == NULL) {
+    if (list == nullptr) {
         return false;
     }
     free(list->data);
     free(list->by_id.data);
-    list->data = NULL;
-    list->by_id.data = NULL;
+    list->data = nullptr;
+    list->by_id.data = nullptr;
     list->len = 0;
     list->cap = 0;
     list->by_id.cap = 0;
     return true;
 }
 
-// Live node with this id, or NULL.
+// Live node with this id, or nullptr.
 Node* nodelist_find(NodeList* list, uint64_t id) {
-    if (list == NULL || list->by_id.data == NULL) {
-        return NULL;
+    if (list == nullptr || list->by_id.data == nullptr) {
+        return nullptr;
     }
     if (id >= list->by_id.cap) {
-        return NULL;
+        return nullptr;
     }
     size_t i = list->by_id.data[id];
     if (i == SIZE_MAX) {
-        return NULL;
+        return nullptr;
     }
     return &list->data[i];
 }
@@ -130,7 +130,7 @@ Node* nodelist_find(NodeList* list, uint64_t id) {
 // Swap-remove the node at index. Updates the directory.
 bool nodelist_remove_unordered(NodeList* list,
                                size_t index) {
-    if (list == NULL || index >= list->len) {
+    if (list == nullptr || index >= list->len) {
         return false;
     }
 
@@ -148,7 +148,7 @@ bool nodelist_remove_unordered(NodeList* list,
 
 // Find by id, then swap-remove that slot.
 bool nodelist_remove_by_id(NodeList* list, uint64_t id) {
-    if (list == NULL || list->by_id.data == NULL) {
+    if (list == nullptr || list->by_id.data == nullptr) {
         return false;
     }
     if (id >= list->by_id.cap) {

@@ -2,7 +2,6 @@
 #define HEAP_H
 
 #include "../shared/events.h"
-#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct {
@@ -11,10 +10,10 @@ typedef struct {
     size_t capacity;
 } MinHeap;
 
-// Allocates a min-heap. Returns NULL on allocation failure.
+// Allocates a min-heap. Returns nullptr on allocation failure.
 MinHeap* heap_create(size_t capacity);
 
-// Releases heap storage. Safe on NULL.
+// Releases heap storage. Safe on nullptr.
 void heap_free(MinHeap* h);
 
 // Inserts value. Returns false on allocation failure.

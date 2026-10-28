@@ -2,7 +2,7 @@
 #define UDP_H
 
 #include "../shared/events.h"
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /*
@@ -12,7 +12,7 @@
  * make check and small experiments.
  */
 
-#define UDP_BIND_MAX 16
+static constexpr int UDP_BIND_MAX = 16;
 
 typedef struct {
     uint64_t node_id;

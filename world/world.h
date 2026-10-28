@@ -1,7 +1,7 @@
 #ifndef WORLD_H
 #define WORLD_H
 
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /*
@@ -37,14 +37,14 @@ typedef struct {
 } RadioPath;
 
 // Allocates nx*ny cells filled with fill. cell_nm must be >
-// 0. grid.cells must start NULL (zero the struct); a second
+// 0. grid.cells must start nullptr (zero the struct); a second
 // init fails without leaking.
 bool mediumgrid_init(MediumGrid* grid, int64_t origin_x_nm,
                      int64_t origin_y_nm, uint64_t cell_nm,
                      uint64_t nx, uint64_t ny,
                      Material fill);
 
-// Releases cell storage. False if grid is NULL.
+// Releases cell storage. False if grid is nullptr.
 bool mediumgrid_free(MediumGrid* grid);
 
 // Fills rp. False if args are invalid or the path is

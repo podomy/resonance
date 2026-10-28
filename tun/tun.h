@@ -3,11 +3,10 @@
 
 #include "../node/node.h"
 #include "../world/world.h"
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define TUN_MAP_MAX 100
+static constexpr int TUN_MAP_MAX = 100;
 
 typedef struct {
     int fd;

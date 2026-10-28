@@ -3,34 +3,36 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_CELL_NM 1000000000ULL
-#define DEFAULT_GRID_N 8ULL
-#define DEFAULT_RANGE_NM 2500000000ULL
+static constexpr uint64_t DEFAULT_CELL_NM =
+    1'000'000'000ULL;
+static constexpr uint64_t DEFAULT_GRID_N = 8ULL;
+static constexpr uint64_t DEFAULT_RANGE_NM =
+    2'500'000'000ULL;
 
 // Initializes clock, heap, node list, grid, and RNG.
 bool context_init(Context* ctx, size_t heap_capacity,
                   uint64_t seed) {
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         return false;
     }
     ctx->clock.nanoseconds = 0;
     ctx->next_seq = 0;
     ctx->next_node_id = 0;
-    ctx->nodes.data = NULL;
+    ctx->nodes.data = nullptr;
     ctx->nodes.len = 0;
     ctx->nodes.cap = 0;
-    ctx->nodes.by_id.data = NULL;
+    ctx->nodes.by_id.data = nullptr;
     ctx->nodes.by_id.cap = 0;
-    ctx->grid.cells = NULL;
+    ctx->grid.cells = nullptr;
     ctx->radio.range_nm = DEFAULT_RANGE_NM;
     ctx->udp_bind_n = 0;
     ctx->heap = heap_create(heap_capacity);
-    if (ctx->heap == NULL) {
+    if (ctx->heap == nullptr) {
         return false;
     }
     if (!nodelist_init(&ctx->nodes, 8)) {
         heap_free(ctx->heap);
-        ctx->heap = NULL;
+        ctx->heap = nullptr;
         return false;
     }
     if (!mediumgrid_init(&ctx->grid, 0, 0, DEFAULT_CELL_NM,
@@ -38,25 +40,25 @@ bool context_init(Context* ctx, size_t heap_capacity,
                          MATERIAL_AIR)) {
         nodelist_free(&ctx->nodes);
         heap_free(ctx->heap);
-        ctx->heap = NULL;
+        ctx->heap = nullptr;
         return false;
     }
     rng_seed(&ctx->rng, seed);
     return true;
 }
 
-// Releases heap, node, and grid storage. Safe on NULL.
+// Releases heap, node, and grid storage. Safe on nullptr.
 void context_free(Context* ctx) {
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         return;
     }
-    if (ctx->heap != NULL) {
+    if (ctx->heap != nullptr) {
         Event ev;
         while (heap_pop(ctx->heap, &ev))
             free(ev.payload);
     }
     heap_free(ctx->heap);
-    ctx->heap = NULL;
+    ctx->heap = nullptr;
     nodelist_free(&ctx->nodes);
     mediumgrid_free(&ctx->grid);
 }
@@ -65,7 +67,7 @@ void context_free(Context* ctx) {
 bool context_add_node(Context* ctx, int64_t x_nm,
                       int64_t y_nm, int64_t vx, int64_t vy,
                       uint64_t* out_id) {
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         return false;
     }
     Node node;
@@ -77,24 +79,24 @@ bool context_add_node(Context* ctx, int64_t x_nm,
     if (!nodelist_push(&ctx->nodes, node)) {
         return false;
     }
-    if (out_id != NULL) {
+    if (out_id != nullptr) {
         *out_id = node.id;
     }
     ctx->next_node_id++;
     return true;
 }
 
-// Returns the node with id, or NULL.
+// Returns the node with id, or nullptr.
 Node* context_find_node(Context* ctx, uint64_t id) {
-    if (ctx == NULL) {
-        return NULL;
+    if (ctx == nullptr) {
+        return nullptr;
     }
     return nodelist_find(&ctx->nodes, id);
 }
 
 // Swap-remove the node with this id.
 bool context_remove_node(Context* ctx, uint64_t id) {
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         return false;
     }
     return nodelist_remove_by_id(&ctx->nodes, id);
@@ -108,18 +110,18 @@ static bool enqueue(Context* ctx, uint64_t t,
                     uint16_t dst_port) {
     Event ev;
 
-    if (ctx == NULL || ctx->heap == NULL || cb == NULL)
+    if (ctx == nullptr || ctx->heap == nullptr || cb == nullptr)
         return (false);
     if (t < ctx->clock.nanoseconds)
         return (false);
-    if (payload_len > 0 && payload == NULL)
+    if (payload_len > 0 && payload == nullptr)
         return (false);
 
-    ev.payload = NULL;
+    ev.payload = nullptr;
     ev.payload_len = payload_len;
     if (payload_len > 0) {
         ev.payload = malloc(payload_len);
-        if (ev.payload == NULL)
+        if (ev.payload == nullptr)
             return (false);
         memcpy(ev.payload, payload, payload_len);
     }
@@ -141,14 +143,14 @@ static bool enqueue(Context* ctx, uint64_t t,
 
 bool context_schedule(Context* ctx, uint64_t nanoseconds,
                       EventCallback cb, uint64_t to_id) {
-    return (enqueue(ctx, nanoseconds, cb, NULL, 0, 0, to_id,
+    return (enqueue(ctx, nanoseconds, cb, nullptr, 0, 0, to_id,
                     0, 0));
 }
 
 void context_run(Context* ctx) {
     Event event;
 
-    if (ctx == NULL || ctx->heap == NULL)
+    if (ctx == nullptr || ctx->heap == nullptr)
         return;
     while (heap_pop(ctx->heap, &event)) {
         if (event.executed_at.nanoseconds >
@@ -170,11 +172,11 @@ bool context_send(Context* ctx, uint64_t from_id,
     RadioPath path;
     uint64_t arrive;
 
-    if (ctx == NULL || on_recv == NULL)
+    if (ctx == nullptr || on_recv == nullptr)
         return (false);
     from = context_find_node(ctx, from_id);
     to = context_find_node(ctx, to_id);
-    if (from == NULL || to == NULL)
+    if (from == nullptr || to == nullptr)
         return (false);
     if (!radio_path(&ctx->grid, &ctx->radio, from->x_nm,
                     from->y_nm, to->x_nm, to->y_nm, &path))
