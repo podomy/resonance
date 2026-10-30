@@ -1,0 +1,64 @@
+Resonance
+
+License: GNU Affero General Public License v3.0 or later (/LICENSE)
+
+Resonance is a high-fidelity simulator and regression harness for
+Concord (https://github.com/podomy/concord): it runs real Concord
+binaries in isolated network namespaces over a simulated radio mesh,
+and asserts cluster convergence across partition, fault, and scale
+scenarios. It was primarily made for Concord to create a flywheel of
+software and simulation.
+
+Build and test
+
+  make                    # build ./bin/resonance
+  make concord            # fetch Concord from GitHub and rebuild if new
+  make check              # fast checks, no Concord
+  sudo make check-full    # all check/ scenarios, needs ./bin/concord
+  make suite-lint         # validate scenarios/*.yaml + suite/examples/*.yaml, no privileges
+  make log                # run demo, tee output to current.log
+  make clean              # remove binaries and test artifacts
+
+YAML scenarios run through bin/rsuite (built with make bin/rsuite
+via the bin/rsuite target):
+
+  bin/rsuite lint <file.yaml>...    # validate without running
+  bin/rsuite run <file.yaml>...     # run (needs root for netns + TUN)
+  bin/rsuite list <file.yaml>...    # parse-only summary, no privileges
+  bin/rsuite doctor                 # report on setup and dependencies
+
+Every make target above exists in the Makefile: all (the bare make),
+concord, check, check-full, suite-lint, log, clean, and the file
+target bin/rsuite. Note that suite-lint is missing from the .PHONY
+list (which names only all, check, check-full, clean, concord, log),
+so a file named suite-lint in the worktree shadows the lint target.
+
+Scenario files live in scenarios/*.yaml (curated set) and
+suite/examples/*.yaml (minimal ports of check/ shapes).
+
+Documentation
+
+  Start at /docs/overview.md. It explains the six layers every
+  scenario is built from, one file per layer (/docs/layer0-sim.md,
+  /docs/layer1-mesh.md, /docs/layer2-lifecycle.md,
+  /docs/layer3-faults.md, /docs/layer4-observation.md,
+  /docs/layer5-runner.md), plus a separate note on test speed
+  (/docs/speed.md) and a glossary of terms (/docs/glossary.md).
+
+Contributing
+
+Discuss your change with the engineering team at contact@podomy.com
+before opening a PR in order not to waste anybody's effort or time.
+
+Announcements and engineering updates on distributed systems, consensus
+algorithms, and robotic fleet coordination are shared via our newsletter
+at https://podomy.com.
+
+  Commit message format - /COMMITS
+  Contributor license agreement - /CLA
+  Contributing - /CONTRIBUTING
+
+License
+
+Resonance is distributed under the GNU Affero General Public License
+v3.0 or later. See /LICENSE.
