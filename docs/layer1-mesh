@@ -1,0 +1,100 @@
+Layer 1: mesh transport
+
+The mesh transport answers one question: how do unmodified binaries
+talk to each other through a fake physical world. The answer is real
+packets through real TUN devices, with a simulated radio deciding
+which packets arrive.
+
+Nothing in this layer knows which binary runs at the other end of a
+TUN. Concord gossip, DDS discovery, ROS traffic, and plain ping
+all look the same here: IPv4 packets to forward or drop.
+
+The setup sequence
+
+Every check/ scenario runs the same preamble, in this order
+(see check/concord_two.c:39-54 for the check/-only reference
+shape):
+
+1. context_init(&ctx, 32, 1). Build the Layer 0 core. The arguments
+   (heap room for 32 events, seed 1) are identical in the check/
+   Concord scenarios.
+2. sim_netns_setup(n). Create one network namespace per extra node.
+   Node 0 stays in the host namespace so there is always a reference
+   point.
+3. sim_tuns_open(fds, n). Open tun0 in the host namespace and
+   tun1.. inside their namespaces. If this fails (no permission, no
+   TUN support), the scenario skips instead of failing.
+4. sim_nodes_add(&ctx, &map, fds, n). Register one simulated node
+   per TUN file descriptor, spaced along the x axis, and remember
+   which descriptor belongs to which node and which IP.
+5. sim_addrs_up(n). Assign underlay addresses 192.168.100.1/2/3
+   and bring the links up, including multicast routes. The underlay
+   is the harness's own wiring and is kept disjoint from the overlay
+   (10.0.0.0/16) that the binaries use among themselves.
+
+The underlay/overlay split is worth understanding. The binaries form
+their own mesh on overlay addresses and never see the underlay. The
+harness moves underlay packets and applies radio physics to them.
+That is what lets the harness partition, slow, or move nodes without
+the binary cooperating.
+
+How one packet travels
+
+tun_pump_fd in tun/tun.c does the whole job for one packet:
+
+1. Read one packet from the source TUN.
+2. Ignore anything that is not IPv4.
+3. If it is multicast (224.0.0.0/4), offer it to every other node,
+   checking the radio separately for each pair.
+4. If it is overlay broadcast (10.0.0.255), same treatment.
+5. Otherwise look up the destination IP in the map and offer it to
+   exactly that node.
+6. "Offer" means: ask radio_path whether the two node positions can
+   hear each other. If yes, write the packet to the destination TUN.
+   If no, drop it silently.
+
+tun_pump_fd_nomcast is the same function with multicast dropped
+instead of broadcast. Only check/concord_anchor.c:34 uses it, to
+prove discovery works through configured anchors while mDNS is blind.
+That reference is check/-only.
+
+Proof without any binary
+
+Four check/ scenarios use this layer with no system under test at
+all:
+
+- check/cable.c: two nodes, ping must succeed through the pump.
+- check/tun_netns.c: same across namespaces, ping must succeed.
+- check/tun_drop.c: one node placed ten meters away, past the
+  2.5 m radio range, ping must fail. The pump runs fine; physics
+  drops every packet.
+- check/mcast.c: multicast listener and sender through the pump.
+
+If you are new to the codebase, read check/cable.c first. It is the
+shortest complete trip through this layer.
+
+Per-run networks and the isolated path
+
+SimNet (sim/sim.h:20-47) holds one run's names: statedir, netns
+prefix, TUN prefix and base, underlay /24, cgroup root, and the
+isolate_all flag. sim_default_net (sim/sim.h:53) returns the
+historic names with node 0 in the host namespace. That is the
+check/-only default, kept frozen.
+
+New code uses the _net variants with an explicit SimNet
+(sim/sim.h:94-153). The isolated path puts every node, including
+node 0, in its own namespace: sim_netns_setup_all
+(sim/sim.h:98-104), sim_tuns_open_all (sim/sim.h:127-135), and
+sim_addrs_up_all (sim/sim.h:148-153). The suite executor always
+takes this path (suite/exec.c:3912 sets isolate_all = 1), so live
+runs share nothing except the allocator file.
+
+sim_run_acquire (sim/sim.h:92) hands out run ids 1..154 through
+a file lock, and sim_net_try_for_run (sim/sim.h:70) maps an id
+to disjoint names. Run 0 is the historic default.
+
+One limit remains, stated in sim/sim.c:310-323. A run that keeps
+node 0 in the host namespace claims the host 224.0.0.0/4 route and
+binds port 7946 on node 0. Two such runs cannot run at the same
+time. Parallel runs use the isolated path, where each run owns its
+route table and port space.

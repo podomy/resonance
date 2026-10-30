@@ -1,0 +1,118 @@
+Layer 4: observation
+
+Observation is how a scenario decides what the cluster did. There are
+three channels: child logs, files on disk, and CLI output. The poll
+rhythm and log scanning loop live in the shared runner (run/run.h).
+Journal shapes and CLI verbs live in the drivers (driver/concord.h,
+driver/weld.h). The suite executor (suite/exec.c) maps YAML
+conditions onto those channels.
+
+Channel 1: child log pipes
+
+Every spawned binary has its stdout and stderr redirected into a
+pipe. The check/ scenario reads chunks and searches for marker
+strings. The YAML executor saves the same chunks to per-node log
+files and greps the files. The two markers that carry nearly every
+mesh verdict:
+
+- "peers":N (sometimes with a space, "peers": N; scenarios check
+  both). Means this node currently sees a full mesh.
+- peer.seen / peer.lost. Means a peer arrived or vanished.
+
+Specialist markers appear where the property needs them: pin
+mismatch and peer key rotated in the key scenarios
+(check/concord_pinalarm.c, check/concord_rotate.c), peer sync ok
+plus a peer address in check/concord_killmidsync.c:178-180 (kill
+exactly while syncing). On failure, check/ scenarios dump recent
+error lines before cleaning up (grep '"level":"error"' ... | tail),
+so the log that decided the run is visible. The suite executor runs
+forensics through RunForensics (run/run.h:46) before the statedir
+wipe instead. Two check/ scenarios (img, stop) also tee child
+output to files under STATEDIR for post-mortem; the rest read pipes
+only.
+
+Channel 2: files on disk
+
+Each node's home holds a journal (journal.jsonl), a config
+(config.json), and stores. Check/ scenarios read them with shell
+greps (they never write, except the key and journal surgery listed
+below). The suite executor submits through concord_submit and reads
+through concord_list_has, concord_assigned_anywhere, and
+concord_mesh_count (driver/concord.h:71-123):
+
+- AssignedNodeID per workload id: who is scheduled where. The
+  assigned_anywhere helper (non-nil id in any journal) gates most
+  workload scenarios.
+- AssignmentEpoch: which reassignment generation a copy belongs
+  to. Orphan, duel, update, and preempt verdicts compare epochs.
+- Image: which container image a workload copy carries. Only the
+  update scenario reads it.
+- Node id from config.json: maps journal entries back to nodes,
+  used to elect victims and leaders (lowest UUID) and to find owners.
+  The executor uses the same mapping for kill plus restart
+  targets.
+- workload.instance.running: the image supply chain's end state.
+  Only check/concord_img reads it.
+
+The only writes to node state are the durability tests themselves:
+deleting the Noise secret key (pinalarm), deleting journal plus kv
+store (reinstall), and running node rotate-key (pinalarm,
+rotate). Everything else is read-only.
+
+Channel 3: CLI verbs
+
+Check/ scenarios drive the system the way an operator does, with the
+config home pointed at one node. The suite executor calls the same
+verbs through driver/concord.h (concord_submit to submit,
+concord_list_has and concord_mesh_count to read) and driver/weld.h
+(weld_pub to send):
+
+- workload run IMAGE: submit, parse Submitted workload uuid.
+  Flags extend it: --memory for the no-fit and preemption
+  scenarios.
+- workload list: poll every 2 s, match the first 8 uuid characters.
+  This is the standard "has it arrived everywhere" check.
+- workload stop id: look for Stopped. Tombstone scenarios
+  assert the stopped copy wins everywhere after reunion.
+- workload update --image image id: only the update scenario.
+- node list: count alive entries for mesh-size verdicts at scale.
+- node rotate-key: only the key scenarios.
+- Image supply (img_push, img_catalog, img_tags): only
+  check/concord_img. Push the test image into every registry from
+  inside its own namespace, read back catalogs and tags, submit, wait
+  for a running instance.
+
+Weld scenarios use weld pub (one publish from a node netns,
+driver/weld.h:133) instead of workload run, and the observed
+condition (weld log plus ROS log where a peer runs) instead of
+journal grep. Same runner underneath.
+
+The declared bypasses
+
+There are two sanctioned bypasses. Both are explicit and documented,
+never silent.
+
+img_push deliberately avoids the mesh: it talks to each node's
+registry over loopback inside that node's own namespace, because the
+filesystem is shared across namespaces. No byte crosses the
+simulated radio, so pushing never stalls behind a partition. This is
+documented at the top of img/img.h.
+
+The docker ROS-peer control path is the second sanctioned bypass
+under the same policy. weld_ros_peer_start
+(driver/weld.h:138-154) runs docker exec on the host against the
+weld-distro container, with capture landing in the per-run
+statedir so parallel runs stay apart. That control path never enters
+a scenario netns and never crosses the simulated radio. Only weld
+echo node traffic crosses the mesh. ROS output is observed through
+the capture files, which is why the observed condition
+(suite/exec.h:6-13) needs weld plus ROS logs where a peer runs.
+
+What goes where
+
+Runner (run/run.h): poll rhythm, log scanning loop, query
+throttling, verdict plumbing, failure forensics. Driver
+(driver/concord.h, driver/weld.h): journal shapes, CLI verbs,
+marker strings, the bypass helpers. The suite executor
+(suite/exec.c) maps YAML until, sustain, hold_s, and do
+steps onto runner plus driver calls.

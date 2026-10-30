@@ -1,0 +1,125 @@
+Resonance, layer by layer
+
+Resonance runs real binaries in isolated network namespaces and checks
+that they converge as a cluster while the network misbehaves. A
+network namespace (netns) is a separate network stack: its own
+interfaces, addresses, and routes, cut off from the host. A TUN
+device is a virtual network card that hands packets to user code
+instead of a wire. Resonance was built for Concord, and Weld uses
+the same machinery for ROS and DDS testing.
+
+If you are new, read this file first, then the layer files in order.
+Each layer file explains one part of the system: what it is, why it
+exists, and which source files implement it.
+
+The six layers
+
+Every scenario does the same six things. The layers are the same six
+things, split apart so each can be reused on its own.
+
+1. Simulation core (/docs/layer0-sim). A clock, an event queue,
+   a node list, a radio world, a random generator, and in-process UDP.
+   No processes, no network, no binaries. Pure data structures with
+   deterministic replay.
+2. Mesh transport (/docs/layer1-mesh). Real packets through real
+   TUN devices, gated by the simulated radio. This is how unmodified
+   binaries talk to each other through a fake physical world.
+3. Process lifecycle (/docs/layer2-lifecycle). Starting,
+   killing, and restarting real binaries inside network namespaces,
+   with five different restart meanings (fresh, preserved, re-keyed,
+   wiped key, wiped state).
+4. Fault control (/docs/layer3-faults). Dropping packets,
+   blinding multicast, moving nodes out of radio range, slowing links,
+   and killing processes. All faults work from outside the binary.
+5. Observation (/docs/layer4-observation). Reading child logs,
+   journals on disk, and CLI output to decide what the cluster did.
+6. Scenario runner (/docs/layer5-runner). The poll loop, the
+   phase machine, the timers, teardown, and the verdict.
+
+Speed is its own topic (/docs/speed). The short version: some
+slowness is the harness and can be fixed, and some slowness is the
+binary's own timers and cannot be fixed from outside. That file tells
+the two apart. Terms are defined in docs/glossary.md.
+
+Where the code lives
+
+run/ holds the shared runner used by new scenarios: setup, the
+poll loop, holds, throttling, teardown, and the verdict plumbing.
+driver/ holds per-system verbs: driver/concord.h for Concord
+spawn, kill, restart, submit, and queries, plus driver/weld.h for
+weld echo nodes, ROS peers, and publish. suite/ holds the YAML
+parser (suite/parse.h) and the executor (suite/exec.h) that maps
+phases to runner calls. cmd/rsuite is the CLI that lints, lists,
+runs, and checks the setup. scenarios/*.yaml and
+suite/examples/*.yaml are the YAML scenarios the CLI runs.
+
+The two run paths
+
+check/ scenarios each carry their own copied poll loop. That loop
+is frozen: 26 files carry a byte-identical hold() helper and the
+rest use the same pattern inline, and new
+behavior goes beside them, never by editing them. YAML scenarios
+take the other path: bin/rsuite run forks one child per file, and
+each child runs suite_run_file (suite/exec.h) on the shared
+run/ loop with a fully isolated network setup. Same mesh, same
+faults, one shared loop instead of copies.
+
+How one check/ scenario runs
+
+Here is the whole story in ten steps, using check/concord_three.c
+as the check/-only example. Three nodes mesh, one gets isolated,
+then it rejoins.
+
+1. Check that ./bin/concord exists. If not, skip quietly.
+2. Build the simulation core: clock at zero, empty node list, empty
+   radio grid.
+3. Create one network namespace per extra node.
+4. Open one TUN device per node (node 0 in the host namespace, the
+   rest inside their own namespace).
+5. Register the nodes and give them underlay addresses
+   (192.168.100.1/2/3, a range kept disjoint from the overlay
+   10.0.0.0/16 the binaries use among themselves). The underlay
+   is the harness's own wiring between TUN devices. The overlay is
+   the address range the binaries form their own mesh on, never
+   seeing the underlay.
+6. Fork one real Concord binary per node, each with its own config
+   home, and collect their log output through pipes.
+7. Poll in a loop: pump packets between TUNs through the radio check,
+   and scan log lines for "peers":3.
+8. Once meshed and settled, stop pumping one node's packets
+   (read and discard instead of forward). That node is partitioned.
+9. After a hold time, resume pumping. Watch for "peers":3 again
+   plus the peer.lost marker from the partition window.
+10. Kill everything, free memory, delete namespaces, wipe state,
+    and return pass or fail.
+
+Steps 2 to 5 are Layer 1. Step 6 is Layer 2. Steps 8 and 9 are
+Layer 3. Step 7's log scanning is Layer 4, and the loop holding it
+all together is Layer 5. A YAML scenario runs the same steps
+through suite_run_file: phases with do steps for faults,
+until plus hold_s for waits, and sustain for holds that must
+never break.
+
+Two rules for the whole codebase
+
+- check/ is frozen. Existing scenarios are read-only. New behavior
+  is added beside them, never by editing them.
+- The mesh is the only channel between nodes. Anything that bypasses
+  the mesh (the image push in img/ and the docker ROS-peer control
+  path in driver/weld.h) must be declared and
+  documented, never silent.
+
+Running the checks
+
+  make                    # build ./bin/resonance
+  make check              # fast checks, no Concord binary needed
+  sudo make check-full    # all check/ scenarios, needs ./bin/concord
+  make suite-lint         # validate scenarios/*.yaml + suite/examples/*.yaml, no privileges
+  bin/rsuite lint file.yaml...    # same validation, explicit files
+  bin/rsuite run file.yaml...     # run YAML scenarios (needs root for netns + TUN)
+  bin/rsuite list file.yaml...    # parse-only summary, needs no privileges
+  bin/rsuite doctor                 # report on binaries, TUN, netns, docker, run lock
+
+make check needs no privileges for most binaries. The two TUN tests
+skip gracefully without them. bin/rsuite run needs root because
+it creates network namespaces and TUN devices.

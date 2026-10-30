@@ -38,12 +38,12 @@ suite/examples/*.yaml (minimal ports of check/ shapes).
 
 Documentation
 
-  Start at /docs/overview.md. It explains the six layers every
-  scenario is built from, one file per layer (/docs/layer0-sim.md,
-  /docs/layer1-mesh.md, /docs/layer2-lifecycle.md,
-  /docs/layer3-faults.md, /docs/layer4-observation.md,
-  /docs/layer5-runner.md), plus a separate note on test speed
-  (/docs/speed.md) and a glossary of terms (/docs/glossary.md).
+  Start at /docs/overview. It explains the six layers every
+  scenario is built from, one file per layer (/docs/layer0-sim,
+  /docs/layer1-mesh, /docs/layer2-lifecycle,
+  /docs/layer3-faults, /docs/layer4-observation,
+  /docs/layer5-runner), plus a separate note on test speed
+  (/docs/speed) and a glossary of terms (/docs/glossary.md).
 
 Contributing
 

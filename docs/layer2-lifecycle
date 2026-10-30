@@ -1,0 +1,109 @@
+Layer 2: process lifecycle
+
+Process lifecycle starts real binaries inside the namespaces that
+Layer 1 built, and restarts them with precise meanings. The mesh
+moves packets; this layer moves processes.
+
+Starting a node
+
+spawn_one_net (sim/sim.c:1256) does the work for one node. In
+plain words, it prepares an isolated home for the node and then
+forks:
+
+1. Make a per-node config home (STATEDIR/nodei).
+2. Copy the shared CA certificates into it, so the node can prove
+   who it is.
+3. Copy the shared gossip key into it, so the node joins this fleet
+   and no other.
+4. Write the node's config: a fresh id, its memberlist and advertise
+   addresses on the underlay.
+5. Fork. In the child, enter the node's network namespace (except
+   node 0 on the frozen check/ path, which lives in the host
+   namespace; the isolated _all path enters node 0 into its own
+   namespace), point config home at
+   the prepared directory, redirect output into a log pipe, and exec
+   the binary.
+6. In the parent, place the child in its per-node cgroup (so each
+   node's containers get their own subtree) and keep the pid and the
+   log pipe.
+
+Variants on top: sim_spawn_concord_net (plain),
+sim_spawn_concord_skew_net (one node with CONCORD_CLOCK_OFFSET
+set, a test time hook the binary provides),
+sim_spawn_concord_anchor_net (one node started with --anchor and
+every config pointed at it), and sim_spawn_concord_debug_net
+(verbose logging for diagnosis only). All four are declared in
+sim/sim.h:157-195. New code uses these _net forms with an
+explicit SimNet. The legacy wrappers without _net
+(sim/sim.h:201-249) stay frozen for check/.
+
+Note that seeding shells out several times per node (mkdir, cp,
+config printf). That cost repeats for every node of every check/
+scenario and is one of the known speedups in /docs/speed.
+
+Restarting a node: five meanings
+
+"Restart" sounds like one thing but the code pins five different
+meanings. Each meaning tests a different durability promise, so
+driver/concord.h:7-20 keeps them as five enum values
+(CONCORD_FRESH, CONCORD_PRESERVE, CONCORD_REKEY_ROTATE,
+CONCORD_KEY_WIPE, CONCORD_WIPE_STATE). The check/ files below
+are the frozen origin shapes. New code calls concord_restart
+(driver/concord.h:68) with one of the five.
+
+1. Fresh identity, wiped directory. CONCORD_FRESH:
+   sim_restart_concord_net deletes the node's whole home and
+   starts it as a stranger. Used by check/concord_restart.c:95-102,
+   and while partitioned or mid-sync by check/concord_killisolated.c,
+   check/concord_killmidsync.c, check/concord_scale_churn.c, and
+   check/concord_spam.c (check/-only callers).
+2. Same directory preserved. CONCORD_PRESERVE:
+   restart_preserve in check/concord_cursor_resume.c:152-198:
+   SIGKILL the process but keep identity, journal, cursor store, and
+   pins. Only the process dies. Proves cursors resume instead of
+   re-pulling everything.
+3. Same directory, rotated key. CONCORD_REKEY_ROTATE:
+   restart_rotated in check/concord_rotate.c:136-189 SIGTERMs the
+   node, runs node rotate-key for a generation bump, and reforks in
+   place. TERM, not KILL, so the daemon flushes before exit
+   (driver/concord.h:66-67). Proves rotation behavior.
+4. Same directory, wiped key. CONCORD_KEY_WIPE:
+   restart_node in check/concord_pinalarm.c:159-229 with the wipe
+   half: SIGKILL the node and delete only the Noise secret key, so
+   reboot mints a fresh key at the same generation. Proves
+   first-key-pins behavior. This is distinct from rotate: wipe keeps
+   the generation, rotate bumps it.
+5. Same identity, wiped state. CONCORD_WIPE_STATE:
+   restart_wiped in check/concord_reinstall.c:153-215: keep the id
+   and key, delete journal plus kv store, rejoin empty. Proves peers
+   fall back past stale cursors and the node re-pulls full history.
+
+Two more cases kill and never restart: the elected leader in
+check/concord_failover.c:298-305 (a successor must take over
+scheduling) and the workload owner in check/concord_orphan.c:374-376
+(a survivor must reassign its work at a bumped epoch). Both are
+check/-only. New code calls concord_kill (driver/concord.h:56)
+for the same stay-dead meaning.
+
+What the Weld driver provides
+
+driver/weld.h provides the same verbs with different bodies.
+weld_spawn_node (driver/weld.h:99) starts a weld echo node per
+netns with a domain id. weld_pub (driver/weld.h:133) publishes
+once from a node netns. weld_ros_peer_start
+(driver/weld.h:149) starts a ROS peer beside a node where the
+scenario needs one. Kill and restart come with stated durability:
+WeldDurability (driver/weld.h:60-65) names WELD_FRESH (wiped
+home) and WELD_PRESERVE (same home), matching the way Concord
+nodes keep their journal. ROS peers are usually stateless and
+restart fresh. The mesh, the faults, and the runner never learn
+these details. They call spawn, kill, and restart with a durability
+argument and read back what the driver reports.
+
+A hook that exists but sleeps
+
+sim_spawn_concord_skew_net sets CONCORD_CLOCK_OFFSET for one node,
+shifting that node's clock. No check/ scenario uses it today. It is the
+only SUT-clock control the harness has, and /docs/speed explains
+why touching SUT clocks is delicate. SUT here means the system under
+test: the binary the harness measures, Concord or Weld.
