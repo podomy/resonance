@@ -1,12 +1,12 @@
 Resonance, layer by layer
 
-Resonance runs real binaries in isolated network namespaces and checks
-that they converge as a cluster while the network misbehaves. A
-network namespace (netns) is a separate network stack: its own
-interfaces, addresses, and routes, cut off from the host. A TUN
-device is a virtual network card that hands packets to user code
-instead of a wire. Resonance was built for Concord, and Weld uses
-the same machinery for ROS and DDS testing.
+Resonance runs real SUT binaries in isolated network namespaces and
+checks that they converge as a cluster while the network misbehaves.
+SUT means the system under test. A network namespace (netns) is a
+separate network stack: its own interfaces, addresses, and routes,
+cut off from the host. A TUN device is a virtual network card that
+hands packets to user code instead of a wire. Concord is one SUT;
+weld with ROS peers is the other. Both use the same mesh machinery.
 
 If you are new, read this file first, then the layer files in order.
 Each layer file explains one part of the system: what it is, why it
@@ -26,20 +26,21 @@ things, split apart so each can be reused on its own.
    binaries talk to each other through a fake physical world.
 3. Process lifecycle (/docs/layer2-lifecycle). Starting,
    killing, and restarting real binaries inside network namespaces,
-   with five different restart meanings (fresh, preserved, re-keyed,
-   wiped key, wiped state).
+   with restart meanings per driver (Concord has five, weld has
+   two; see that layer).
 4. Fault control (/docs/layer3-faults). Dropping packets,
    blinding multicast, moving nodes out of radio range, slowing links,
    and killing processes. All faults work from outside the binary.
 5. Observation (/docs/layer4-observation). Reading child logs,
-   journals on disk, and CLI output to decide what the cluster did.
+   on-disk state, and CLI output to decide what the cluster did
+   (journals for Concord, logs plus captures for weld).
 6. Scenario runner (/docs/layer5-runner). The poll loop, the
    phase machine, the timers, teardown, and the verdict.
 
 Speed is its own topic (/docs/speed). The short version: some
 slowness is the harness and can be fixed, and some slowness is the
 binary's own timers and cannot be fixed from outside. That file tells
-the two apart. Terms are defined in docs/glossary.md.
+the two apart. Terms are defined in docs/glossary.
 
 Where the code lives
 
@@ -49,26 +50,31 @@ driver/ holds per-system verbs: driver/concord.h for Concord
 spawn, kill, restart, submit, and queries, plus driver/weld.h for
 weld echo nodes, ROS peers, and publish. suite/ holds the YAML
 parser (suite/parse.h) and the executor (suite/exec.h) that maps
-phases to runner calls. cmd/rsuite is the CLI that lints, lists,
-runs, and checks the setup. scenarios/*.yaml and
-suite/examples/*.yaml are the YAML scenarios the CLI runs.
+phases to runner calls. cmd/ holds the CLI that lints, lists,
+runs, and checks the setup. suite/examples/*.yaml are
+minimal example scenarios the CLI runs; full suites live
+in the repos under test, not here.
 
 The two run paths
 
 check/ scenarios each carry their own copied poll loop. That loop
-is frozen: 26 files carry a byte-identical hold() helper and the
-rest use the same pattern inline, and new
-behavior goes beside them, never by editing them. YAML scenarios
-take the other path: bin/rsuite run forks one child per file, and
-each child runs suite_run_file (suite/exec.h) on the shared
-run/ loop with a fully isolated network setup. Same mesh, same
-faults, one shared loop instead of copies.
+is frozen: each file carries the same arms-on-first-call
+pattern inline with t0 plus HOLD_* (see
+check/concord_three.c), mirrored for new code by run_hold
+(run/run.h:136-139), and new behavior goes beside them, never
+by editing them. YAML scenarios take the other path:
+bin/rsuite run forks one child per file, and each child
+runs suite_run_file (decl suite/exec.h:381-390, def
+suite/exec.c:7878-7886) on the shared run/ loop with a fully
+isolated network setup. Same mesh, same faults, one shared
+loop instead of copies.
 
 How one check/ scenario runs
 
 Here is the whole story in ten steps, using check/concord_three.c
-as the check/-only example. Three nodes mesh, one gets isolated,
-then it rejoins.
+as the check/-only Concord example. Concord is the example SUT;
+weld scenarios follow the same steps with different binaries and
+checks. Three nodes mesh, one gets isolated, then it rejoins.
 
 1. Check that ./bin/concord exists. If not, skip quietly.
 2. Build the simulation core: clock at zero, empty node list, empty
@@ -82,14 +88,16 @@ then it rejoins.
    is the harness's own wiring between TUN devices. The overlay is
    the address range the binaries form their own mesh on, never
    seeing the underlay.
-6. Fork one real Concord binary per node, each with its own config
-   home, and collect their log output through pipes.
-7. Poll in a loop: pump packets between TUNs through the radio check,
-   and scan log lines for "peers":3.
+6. Fork one real SUT binary per node (Concord here), each with its
+   own config home, and collect log output through pipes.
+7. Poll in a loop: pump packets between TUNs through the radio
+   check, and scan log lines for "peers":3 (the Concord mesh
+   marker; weld checks weld plus ROS logs instead).
 8. Once meshed and settled, stop pumping one node's packets
    (read and discard instead of forward). That node is partitioned.
 9. After a hold time, resume pumping. Watch for "peers":3 again
-   plus the peer.lost marker from the partition window.
+   plus the peer.lost marker from the partition window (both are
+   Concord markers).
 10. Kill everything, free memory, delete namespaces, wipe state,
     and return pass or fail.
 
@@ -111,15 +119,19 @@ Two rules for the whole codebase
 
 Running the checks
 
-  make                    # build ./bin/resonance
-  make check              # fast checks, no Concord binary needed
-  sudo make check-full    # all check/ scenarios, needs ./bin/concord
-  make suite-lint         # validate scenarios/*.yaml + suite/examples/*.yaml, no privileges
+  make                    # build resonance and rsuite (test bins build transiently under test)
+  make test               # run all tests plus lint plus standard, no privs
+  make suite-lint         # validate suite/examples/*.yaml, no privileges
+  make standard           # C23 spelling plus version gate, no privileges
   bin/rsuite lint file.yaml...    # same validation, explicit files
   bin/rsuite run file.yaml...     # run YAML scenarios (needs root for netns + TUN)
   bin/rsuite list file.yaml...    # parse-only summary, needs no privileges
   bin/rsuite doctor                 # report on binaries, TUN, netns, docker, run lock
 
-make check needs no privileges for most binaries. The two TUN tests
-skip gracefully without them. bin/rsuite run needs root because
-it creates network namespaces and TUN devices.
+`make` leaves out bin/fuzz_parse, which needs ASan plus UBSan
+runtimes absent on some hosts. Build that one with `make
+fuzz-parse`. `make test` needs no privileges for most binaries.
+The two TUN tests skip gracefully without them. It runs the Go
+suite when Go exists, else it prints a skip line and stays green.
+bin/rsuite run needs root because it creates network namespaces
+and TUN devices.

@@ -1,0 +1,41 @@
+# bench-generic-concord: explicit
+# generic concord lifecycle. Send names
+# workload-submit under base bench0,
+# expect names workload-running with
+# state running. Second phase stops the
+# set and proves absence. Submit plus
+# list pairing only; journals use
+# journal-has with a field map.
+name: bench-generic-concord
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 90
+phases:
+  - name: load
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: workload-submit
+            image: probe
+            as: bench0
+          expect:
+            node: 0
+            via: workload-running
+            match: running
+          rate: 2
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 1
+    timeout_s: 30
+  - name: done
+    do:
+      - stop:
+          workload: bench0
+    until:
+      absent:
+        workload: bench0
+        on: all
+    timeout_s: 30

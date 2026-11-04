@@ -1,0 +1,33 @@
+# bench-weld: shape proof for the
+# benchmark step (weld pub form).
+# Tiny scale only: three paced pubs
+# at 5/sec, first one warmup. Each
+# payload carries bench#seq#send_ns#
+# text, e.g. bench#0#123456789#
+# bench-load; the observed path
+# matches that prefix, so user text
+# never confuses matching.
+# Stats land as metric events only
+# (bench.0.0.count/loss/p50/p99/
+# max), TAP/JSON bytes never move.
+# Unrunnable here: needs weld plus
+# TUN, lint proves the shape only.
+name: bench-weld
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 60
+phases:
+  - name: load
+    do:
+      - benchmark:
+          from: 0
+          text: bench-load
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

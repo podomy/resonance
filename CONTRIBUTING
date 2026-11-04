@@ -21,7 +21,7 @@ not a no.
                           Getting Started
 
 1. Build        make
-2. Test         make check
+2. Test         make test
 3. Pick an issue or go over the code
 4. Send an RFC to contact@podomy.com if the change is not small
 5. Submit a PR

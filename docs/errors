@@ -1,0 +1,283 @@
+Error catalog: message, meaning, action
+
+Errors name the cause first. Find the exact bytes below, then fix
+the named cause. Lint text is path plus line shaped. Runtime why
+carries the first failure. The CLI lives at cmd/main.c. Code wins
+over prose. If you get the category wrong you will fix the wrong
+layer: lint means the file shape is bad and nothing ran, skip means
+the run was not testable here, fail means the system was tested and
+found wrong, and usage error means the command line never started
+work.
+
+Lint errors: categories
+
+Lint checks shape, not behavior. It never needs root. A lint failure
+means no mesh ran, so do not read logs or wipe state: open the YAML
+reference at the named section, fix the named key, and rerun the
+linter. For the full rule table do not copy from here; docs/yaml is
+the authority with per-key scope, ranges, and its own code map. Lint
+prints path plus line plus message. Unknown keys fail through the
+unknown-key path. Validate with make suite-lint or bin/rsuite lint.
+List success does not imply lint success.
+
+Where to look per category:
+
+Each entry below names a symptom, what it means, and the
+fix. Open docs/yaml at the named section for the full rule.
+
+Top keys: exactly 11 allowed, unknown fails - file has a
+key outside the schema. Fix: remove or rename the key; see
+Top-level keys in docs/yaml.
+
+Name, version, sut, nodes, domain, topic: type plus range
+plus SUT scope - a scalar has the wrong type, range, or
+SUT. Fix: fix the named scalar; see docs/yaml.
+
+Spawn variant, node, offset: plain, anchor, skew shapes
+plus weld limits - spawn mapping breaks the variant rules.
+Fix: fix variant, node, or offset; see docs/yaml.
+
+ros_peers list: weld-only, node plus distro, non-empty max
+100 - peer list breaks weld-only or entry rules. Fix: fix
+the peer entries; see docs/yaml.
+
+timeout_s file and phase plus hold_s: 1..3600 and 0..3600,
+hold needs until and must not exceed phase timeout - a
+timeout is out of range or hold is misplaced. Fix: fix the
+timeout or hold; see Limits in docs/yaml.
+
+phases list: non-empty, unique names, exactly one of until
+or sustain - phase list is empty, doubled, or missing its
+check. Fix: fix the phase list; see docs/yaml.
+
+steps: exactly one verb per map, only drop, heal, kill,
+restart, move, submit, stop, pub exist; node ints are
+0..nodes-1; image, flags, topic shapes checked - a step
+names a bad verb, node, or string shape. Fix: fix the step;
+see docs/yaml.
+
+conditions: exactly one of peers, marker, present, absent,
+observed, assigned, mesh_count; arity and SUT scope differ
+per condition - a condition names the wrong key or scope.
+Fix: fix the condition; see docs/yaml plus the oracle
+table.
+
+needs verbs: unknown fails lint; single submit, stop or
+workload read with no earlier submit fails, second submit
+fails - a needs verb is unknown or the submit order is
+wrong. Fix: fix needs or submit order; see Needs table and
+Limits.
+
+Action for any lint line: open docs/yaml at the named section, fix
+the named key, rerun bin/rsuite lint.
+
+Runtime skips: not failures
+
+Skip means not testable here. CI reads it as not applicable. A skip
+needs setup, not forensics: giving it the missing binary, daemon, or
+privilege makes it run. No wipe issue, exit 0 at rsuite level per
+tally. If you treat a skip as a pass of the system, you will claim
+coverage that never ran.
+
+Each entry below names a symptom, its cause, and the fix.
+
+skip unmet need, with stdout suite: skip plus unmet need -
+file needs a driver ability this SUT build lacks. Fix: run
+a file whose needs match, or add the ability; lint would
+have failed unknown verbs first.
+
+skip no concord binary, with stdout suite: skip plus no
+bin - concord SUT file but binary not executable at
+./bin/concord or the configured concord path. Fix: build
+the binary, then rerun; concord-unaffected files still run;
+check shape mirrors the check skips.
+
+skip no weld binary, same bytes on the weld path, null
+means default - weld binary missing. Fix: build it or point
+the suite options weld path at it.
+
+skip no docker, with stdout suite: skip plus no docker -
+weld file but docker info answers nonzero, missing, or hung
+past its bound. Fix: start the docker daemon, then rerun;
+concord files are unaffected and only the weld branch checks
+docker.
+
+skip with errno text, with stdout suite: skip plus errno
+text - TUN open failed after unwind with errno kept; the sim
+layer also prints skip with errno on host tun open, and
+check TUN tests print tun_netns: skip and tun_drop: skip.
+Fix: confirm with bin/rsuite doctor, rerun with root for
+netns plus TUN; see the troubleshoot file for the TUN
+path.
+
+Runtime fails
+
+Fail means tested and wrong, or setup broke. Failed runs call
+forensics before wipe, so read the saved copies, not the wiped
+statedir. If you rerun before reading forensics you destroy the only
+evidence.
+
+Each entry below names a symptom, its cause, and the fix.
+Failed runs call forensics before wipe, so read the saved
+copies, not the wiped statedir.
+
+run acquire failed, with sim counter read, corrupt, or
+exhausted text on stderr - lock, I/O, corrupt counter, or
+full at 154. Fix: inspect
+/var/tmp/resonance-runs.counter, wipe it to reset monotonic
+ids after runs end.
+
+bad run id with a number - id below 0 or above 154 would
+wrap the octet or alias tun names. Fix: pass 0..154 only; 0
+self-acquires.
+
+setup failed - netns, nodes, or addrs step failed; partial
+setup already unwound. Fix: read prior stdout, check
+doctor, clean stale netns and cgroups, rerun.
+
+statedir too long - per-run statedir did not fit the 128
+byte dir cap. Fix: shorten statedir; this needs a code
+change, not a flag.
+
+spawn failed plus suite: fail plus spawn - spawn returned
+false after teardown with no forensics. Fix: check binary
+present plus exec ok, check statedir writable and
+dev-capable, read logs.
+
+spawn node plus number failed plus suite: fail spawn; same
+for one weld node; ros peer plus index failed plus suite:
+fail ros peer - weld spawn or ROS peer start returned
+false. Fix: check weld binary, domain, docker, topic
+charset.
+
+phase name plus step reason, plus suite: fail plus phase
+plus step - a do step failed on entry, for example a bad
+step. Fix: fix the named step verb or target.
+
+phase name plus no child alive - liveness check found none
+during until or sustain. Fix: look for early exit or kill,
+read per-node logs and forensics tails.
+
+phase name plus file timeout - wall clock passed file
+timeout_s. Fix: raise timeout_s within 1..3600 or split the
+file; check SUT slowness in docs/speed.
+
+phase name plus until timeout on description - phase timeout
+passed before until latched plus held. Fix: check mesh
+first, then fault scope, then timeout values.
+
+phase name plus sustain violated on description - sustain
+broke, or broke on exact expiry poll; this is the
+hold-that-must-never-break shape. Fix: read which target
+showed the banned text or lost the hold, narrow the fault.
+
+phase name plus query reason - query layer errored. Fix:
+read the query text, check statedir and query paths.
+
+no log path on stderr - forensics tail found no log file.
+Fix: check statedir and SUT split; weld versus concord
+names differ.
+
+separator line plus log path then bytes then blank - tail
+of one node log. Fix: read it for peers markers and error
+lines.
+
+suite: forensics at plus dir - aside dir holding copies
+past wipe, named statedir-fail with suite plus seconds.
+Fix: open that dir, not the wiped statedir.
+
+child killed on parent why when child did not exit - rsuite
+child killed by signal. Fix: check signal source, rerun
+with fewer jobs or serial.
+
+(no log) in the failures list when per-file log missing or
+empty - log never opened or zero bytes; bytes still phase
+scanned. Fix: check log dir writable, disk space, name
+clash cap.
+
+Usage errors: exit 2
+
+Bad CLI use prints the cause plus full usage and returns exit 2
+before any child starts. Nothing ran, so do not read suite logs: fix
+the command line. If you mistake exit 2 for a suite failure you will
+debug the YAML when the flag order is the bug.
+
+rsuite: needs a subcommand plus usage. Action: pass lint, run, list,
+doctor, or --help.
+
+rsuite: unknown subcommand plus name plus usage. Action: fix the
+verb.
+
+lint needs at least one file; list needs at least one file; run
+needs at least one file. Action: pass a YAML path.
+
+run needs a value after --jobs. Bad --jobs value plus text plus
+usage means the parser rejects empty, leading space, non-numeric
+tail, or value below 1. Action: pass --jobs N or --jobs=N with N
+1..64.
+
+rsuite: --jobs value clamped to 64. Meaning: above the max jobs cap
+warns and caps. Action: none; the run proceeds at 64.
+
+run needs a value after --log-dir. run needs a non-empty --log-dir.
+Meaning: the flag needs a non-empty dir value in both spellings.
+Action: pass --log-dir D or --log-dir=D.
+
+rsuite: unknown flag plus name plus usage. Action: move a valid flag
+before files or fix spelling.
+
+--tap and --json conflict. Meaning: the two flags conflict. Action:
+pass at most one.
+
+rsuite: flag plus name after files; flags precede files plus usage.
+Meaning: trailing flags are usage errors; run flags precede files.
+Action: reorder flags before YAML paths.
+
+doctor takes no arguments. Action: run bin/rsuite doctor bare.
+
+rsuite: no log dir plus dir plus errno and rsuite: no log dir plus
+errno on stderr. Meaning: custom dir not makable or temp dir failed;
+the run continues with null log. Action: fix perms or path, or pass
+--log-dir.
+
+rsuite: no mem. rsuite: no signal watch. Meaning: parent alloc or
+signal setup failed. Action: retry on a healthy host.
+
+Doctor: OK, MISSING, ERROR
+
+Doctor reports setup, it does not fail for missing tools. Each line
+is OK, MISSING, or ERROR: positive status prints OK, zero prints
+MISSING plus hint, negative prints ERROR plus hint. Doctor exits 0
+with the report even when lines say MISSING, and 1 only on probe
+error, since missing deps inform rather than fail. If you gate
+scripts on the words instead of the exit, you will fail healthy
+hosts that simply lack an optional daemon.
+
+Lines in order: euid root OK when root else MISSING (not root);
+/dev/net/tun OK on read plus write else MISSING (no tun access);
+netns list; create needs root via shell ip netns list, MISSING (ip
+missing) or ERROR on fork or wait failure; bin/concord sibling of
+rsuite OK on exec else MISSING (not built); bin/weld same; docker
+daemon via shell docker info MISSING (daemon down) or ERROR on probe
+failure; run lock read plus write on /var/tmp/resonance-runs.lock
+else MISSING (missing or denied); run counter same on
+/var/tmp/resonance-runs.counter; lock dir /var/tmp write plus exec
+else MISSING (not writable). Lock and counter paths mirror the sim
+allocator paths.
+
+Code map
+
+Lint format and unknown-key helpers; extra-key check; top key range
+and per-key scalar checks; spawn variant shapes; ROS peer list
+checks; timeout and hold checks; phase list checks; step verb checks
+with image, flags, topic, float, and durability helpers; condition
+checks with oracle table in the header; needs table and submit order
+checks. Skip branches: unmet need, concord binary, weld binary,
+docker probe, errno path; TUN open and check skip prints. Fail
+branches: acquire, run id, setup, statedir length, spawn paths,
+phase step and liveness and timeout and sustain and query paths,
+forensics tail and aside dir, child signal, missing log list. Usage
+exit path and global help; per-command missing-file, jobs, log-dir,
+flag, conflict, order, and doctor-arity errors; log dir and alloc
+failures. Doctor line printer, shell probe helper, sibling resolver,
+and ordered probe list with lock and counter paths.

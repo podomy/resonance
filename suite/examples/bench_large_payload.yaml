@@ -1,0 +1,37 @@
+# bench-large-payload: 64 KB point
+# cloud proof. One benchmark at
+# 5/sec, three issues, one warmup,
+# body is 65536 x bytes
+# deterministic. Tag plus body fits
+# kBenchPay (66000); file needle
+# buffer holds full body (132000),
+# so end to end still matches.
+# Weld pub argv fits (ARG_MAX 2 MB,
+# per-string 128 KB); TUN fragments
+# at IP level (MTU 1500, pump reads
+# 2048), still counts. ROS yaml
+# caps near 512 (driver), so large
+# ROS bodies fail loudly, never
+# clip. 1 MB images need chunking
+# plus larger argv and DDS check,
+# see exec.h. Unrunnable here:
+# needs weld plus TUN, lint only.
+name: bench-large-payload
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 60
+phases:
+  - name: large
+    do:
+      - benchmark:
+          from: 0
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+          payload_bytes: 65536
+    until:
+      mesh_count: 2
+    timeout_s: 30

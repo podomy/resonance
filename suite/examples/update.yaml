@@ -1,0 +1,44 @@
+# update mirrors
+# check/concord_update.c: submit,
+# move the image, assert converged
+# image, then stop and go absent.
+name: update
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 150
+phases:
+  - name: mesh
+    until:
+      mesh_count: 2
+    timeout_s: 45
+  - name: submit
+    do:
+      - submit:
+          node: 0
+          image: probe:v1
+          as: w0
+    until:
+      assigned:
+        workload: w0
+    timeout_s: 45
+  - name: move
+    do:
+      - update:
+          workload: w0
+          image: probe:v2
+    until:
+      image:
+        workload: w0
+        value: probe:v2
+        on: all
+    timeout_s: 30
+  - name: stop
+    do:
+      - stop:
+          workload: w0
+    until:
+      absent:
+        workload: w0
+        on: all
+    timeout_s: 30

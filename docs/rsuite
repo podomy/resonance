@@ -1,0 +1,294 @@
+rsuite CLI reference
+
+bin/rsuite runs YAML scenario files and reports one verdict per
+file. Build it with make bin/rsuite. This file documents exact
+behavior. Wording in quotes is literal output. Verified by running
+the binary with --help and with bad flags. If you pick the wrong
+subcommand you will either lint without running or run without
+privilege and misread the result.
+
+When to use which subcommand
+
+lint - check file shape without running. Needs privs: no.
+
+run - run files for real. Needs privs: yes, root for netns
+plus TUN.
+
+list - see file summary without checks. Needs privs: no.
+
+doctor - check host setup and deps. Needs privs: no.
+
+report - render a run log or run dir. Needs privs: no.
+
+Subcommands
+
+lint with YAML files: Check files without running them. Prints path:
+OK per good file on stdout. Prints path plus line errors on stderr.
+Needs no privs. Exit 0 when all pass, 1 when any fail.
+
+run with flags plus YAML files: Run files, one child per file. Needs
+root for netns plus TUN. Always forks, even at jobs=1, so one code
+path serves serial and parallel runs. See flags and log layout
+below.
+
+list with YAML files: Parse-only summary per file. Needs no privs.
+Parse success does not imply lint success. See shape below.
+
+doctor: Report on setup and deps. Takes no arguments. See probe list
+below.
+
+report with a log file or run dir: Render verdict, timeline,
+graphs, and checks as text; --html OUT writes the offline HTML
+file instead; --format prom prints Prometheus exposition to
+stdout (one gauge sample per numeric metric token, key plus
+phase plus log labels) for textfile dirs or remote-write.
+Malformed lines skip. Needs no privs.
+
+Global and per-command help
+
+Help always prints to stdout and exits 0. Missing or wrong commands
+print usage to stderr and exit 2. If you see exit 2, fix the command
+line: nothing ran.
+
+rsuite --help and rsuite -h print the global usage plus exit line
+plus short paragraphs, exit 0. Each subcommand takes its own help as
+the sole arg: lint, list, doctor, and run forms with --help or -h.
+Run help works inside the run flag parser in any position before
+files. Help output goes to stdout, exit 0. No subcommand or unknown
+subcommand prints usage to stderr, exit 2. lint with no file says
+lint needs at least one file. list with no file says list needs at
+least one file. run with no file says run needs at least one file.
+doctor with any arg says doctor takes no arguments. All exit 2.
+
+Run flags
+
+--jobs N and --jobs=N set parallel children. Default 1. Both
+spellings work. Missing value says run needs a value after --jobs,
+exit 2. Bad text (zero, negative, non-numeric, trailing junk,
+leading space) prints rsuite: bad --jobs value plus text plus usage,
+exit 2. Over 64 clamps to 64 with a warning on stderr and keeps
+going:
+
+  rsuite: --jobs 100 clamped to 64
+
+Verified live with --jobs 100.
+
+--log-dir D and --log-dir=D pick the run log dir. Missing value says
+run needs a value after --log-dir, exit 2. Empty value says run
+needs a non-empty --log-dir, exit 2. Unusable dir prints rsuite: no
+log dir plus dir plus errno and keeps going without file logs. See
+log layout.
+
+--tap and --json pick machine output. Default (neither) prints the
+same TAP bytes but also draws progress on a tty. The two flags
+conflict: with both set the CLI prints rsuite: --tap and --json
+conflict plus usage, exit 2. Verified live.
+
+-h and --help inside run print run help, exit 0. Unknown flag prints
+rsuite: unknown flag plus flag plus usage, exit 2.
+
+Flags must precede files. The parser stops at the first non-flag.
+Any later arg starting with a dash is an error:
+
+  rsuite: flag <flag> after files;
+  flags precede files
+
+plus usage, exit 2. Verified live with a trailing --jobs.
+
+Exit codes
+
+Zero means the command worked, one means the suite found failure,
+two means the command line was wrong. Skips never fail the run. If
+you alert on any nonzero, all-skip runs will page you for healthy
+hosts.
+
+0 ok. 1 suite failure (some file failed; skips do not fail the run).
+2 bad usage (bad flags, missing files, conflict, unknown
+subcommand).
+
+Child skip 2 versus usage 2 is a known collision across domains. The
+child exit for skip is 2, the same number as the CLI usage exit.
+They never mix: the parent maps child 0 to pass, 2 to skip, and
+anything else (plus killed children) to fail, then tallies pass,
+fail, and skip. The final CLI exit is 1 when fail count is above 0
+else 0. An all-skip run exits 0. Usage errors exit 2 before any
+child starts.
+
+TAP and JSON bytes
+
+Machine output is one line per file in input order after all work
+finishes, then one summary line. No plan and no version lines. If
+you parse it, expect exactly this shape: pars ers that want a plan
+line will fail.
+
+TAP per file:
+
+  ok 1 path (pass)
+  ok 2 path # SKIP why (skip)
+  not ok 3 path - why (fail)
+
+Newlines and returns in why print as spaces. TAP summary:
+
+  # pass=1 fail=0 skip=0
+
+On a color tty progress run the three counts print in bold with
+green, red, and dim inks. Piped runs and any --tap or --json run
+stay plain. The verified plain run with a missing file prints:
+
+  not ok 1 /nonexistent.yaml -
+  No such file or directory
+  # pass=0 fail=1 skip=0
+
+exit 1.
+
+JSON per file:
+
+  {"file":"path","verdict":"pass",
+  "why":"text"}
+
+Verdict words are pass, fail, and skip. Strings quote with escapes
+for quote, backslash, newline, tab, return, and unicode escapes for
+other control bytes. JSON summary:
+
+  {"summary":{"pass":0,"fail":1,
+  "skip":0}}
+
+JSON never colors. Verified live with --json on a missing file.
+
+Progress rows
+
+Live rows are a human display only. They appear when stdout is a tty
+and neither machine flag is set. Piped output never draws rows, so
+TAP bytes stay stable for scripts. If rows vanish in your logs, that
+is expected: the run still tested everything.
+
+Each live row reads:
+
+  RUNNING  <base>  <phase> [i/n]
+
+Base is the file name after the last slash. Phase is the last suite:
+line seen, with the suite: prefix stripped. Index pair is 0-based
+phase index over phase total, from suite: phase and suite: frac scan
+lines. Unknown phase (count, blank name, unreadable file) prints
+phase only with no tail. State word prints yellow on color terms.
+
+At most 8 rows draw. The rest fold into one tail line:
+
+  ... +N more
+
+Long lines cut the middle to terminal width with ... between,
+keeping head and tail. Rows repaint in place with cursor-up codes.
+Dumb terms (TERM is dumb) or any NO_COLOR value scroll instead with
+zero escape codes at all. There is no head line, no counts, no bars,
+no percent, no elapsed, and no spinners. After the loop a newline
+prints, then result lines, then the summary, then (progress mode
+only) a failure list.
+
+Log dir layout
+
+Every run keeps its logs. Nothing cleans them, so budget disk and
+remove them by hand when done. If a run loses its log dir, the
+verdict still stands: bytes are phase scanned even with a null log,
+but post-mortem gets harder.
+
+Default: a fresh per-run dir from mkdtemp under /var/tmp, shaped
+as resonance-rsuite-XXXXXX. With --log-dir D: mkdir the dir (exists
+stat it back, and reject non-directories instead of degrading.
+
+Per file: base plus numeric suffix log in the run dir, opened
+exclusive with a numeric suffix on clash (up to 100 tries). Null log
+keeps the run; bytes are still phase scanned. Child stdio is
+redirected into a pipe whose bytes the parent logs and scans for
+suite: phase and frac lines.
+
+Logs persist per file in the run dir. Nothing cleans them. Missing
+or empty logs report (no log). In progress mode only, failed files
+list after the summary as:
+
+  # failures:
+  # <file> log <path>
+
+Red on a color tty, plain otherwise. Piped TAP stays byte-identical.
+
+Forensics live one layer down in the executor: it tails node logs
+(node logs, or weld plus ros logs for weld) to stderr and copies
+journals beside the run statedir before the wipe, mirroring check
+forensics, then prints suite: forensics at plus dir.
+
+list output shape
+
+List shows what the file declares, not whether it is valid. A clean
+list line does not mean lint passes: run lint before you run. If a
+key is missing you get a warning on stderr but still a summary line.
+
+One line per file on stdout:
+
+  path: name=X sut=Y nodes=N
+  phases=N [a, b]
+
+Missing scalar prints a dash. Missing key warns on stderr but still
+prints:
+
+  path: warning: no 'key'; lint fails
+
+Checked keys are name, version, sut, nodes, timeout_s, and phases.
+Names with blanks, quotes, or slashes print double quoted. Read or
+parse failure prints path plus errno or path plus line plus col plus
+message on stderr and marks the run failed. Success does not imply
+lint success by design.
+
+doctor probes
+
+Doctor checks whether this host can run scenarios. It informs, never
+fails for missing tools: exit stays 0 with the report, and 1 only on
+probe error. If a run skips, read these nine lines before anything
+else.
+
+Nine lines, one per check, shaped as what: OK, what: MISSING plus
+hint, or what: ERROR plus hint. Verified live:
+
+  euid root (MISSING when not root)
+  /dev/net/tun (needs read plus write)
+  netns list; create needs root
+  (probes ip netns list)
+  bin-dir/concord (needs exec)
+  bin-dir/weld (needs exec)
+  docker daemon (probes docker info)
+  run lock (needs read plus write)
+  run counter (needs read plus write)
+  lock dir /var/tmp (needs write plus
+  exec)
+
+Sibling paths resolve from the exe path plus leaf, with a ./bin
+fallback. Exit 0 with the report even when lines say MISSING. Exit 1
+only on probe error (fork or wait failure). Creating netns and TUN
+ids needs root; missing deps inform, they do not fail.
+
+Ctrl-C behavior
+
+Interrupt stops launch at once and kills live children with a grace
+period, then sweeps orphans so no netns or TUN leaks. Files never
+launched count as fail, not skip. If you press Ctrl-C twice, the
+second still lands: the loop kills on its tick and children restore
+default handling so they die directly.
+
+SIGINT and SIGTERM set a flag; the run loop does the killing on the
+next 100 ms tick. Launch stops at once. Live children get TERM
+first, then KILL past a 2 s grace. Each child owns its process group
+(setpgid in child and parent, with pid fallback when the group is
+gone), so grandchildren die too and no orphans keep netns or TUN.
+After reap, each group gets an orphan sweep (TERM, wait 2 s in 100
+ms steps, then KILL). Files never launched are marked interrupted
+and count as fail. Forked children restore default signal handling
+so Ctrl-C still kills them directly.
+
+Code map
+
+Subcommand dispatch with help and arity errors; jobs and log dir
+parsing with clamp and conflict rules; usage and exit-code shared
+paths; TAP and JSON line plus summary printers with tally mapping;
+progress row cap, fold, trim, color, and dumb handling; log dir
+create, join, open with clash tries, and persist rule with failure
+list; list summary shape with warning and quoting rules; doctor
+ordered probes with sibling resolve and probe helper; interrupt
+flag, grace kill, group, and sweep path.

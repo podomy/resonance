@@ -1,0 +1,32 @@
+# bench-concord: shape proof for
+# the benchmark step (concord
+# submit form). Tiny scale only:
+# three paced submits at 2/sec
+# under base bench0, first one
+# warmup. Issues mint bench0-0..
+# bench0-2 like a counted submit;
+# latency runs submit to first
+# list sighting on any node. Stats
+# land as metric events only
+# (bench.0.0.count/loss/p50/p99/
+# max), TAP/JSON bytes never move.
+# Unrunnable here: needs concord
+# plus TUN, lint proves shape.
+name: bench-concord
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 60
+phases:
+  - name: load
+    do:
+      - benchmark:
+          node: 0
+          image: probe
+          as: bench0
+          rate: 2
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

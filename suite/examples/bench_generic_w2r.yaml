@@ -1,0 +1,38 @@
+# bench-generic-w2r: explicit generic
+# weld to ros pairing. Send names
+# weld-pub on node 0, expect names
+# ros-log-contains on node 1 where a
+# beside peer runs. Needs ros.peer for
+# the beside capture. Same stats as
+# sugar; nonsense pairs would read
+# 100 percent loss, never lint fail.
+name: bench-generic-w2r
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+needs:
+  - ros.peer
+timeout_s: 60
+ros_peers:
+  - node: 1
+    distro: jazzy
+phases:
+  - name: load
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            body: bench-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: ros-log-contains
+            match: bench-load
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

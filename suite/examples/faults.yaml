@@ -1,0 +1,50 @@
+# faults exercises net faults with
+# multicast off, then a slow drain
+# plus disk pressure, then heal.
+name: faults
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 150
+phases:
+  - name: mesh
+    until:
+      peers: 2
+      on: all
+    timeout_s: 45
+  - name: degraded
+    multicast: off
+    do:
+      - drop:
+          nodes: all
+          loss: 0.2
+          delay_ms: 50
+          jitter_ms: 5
+          dir: out
+    sustain:
+      mesh_count: 2
+    timeout_s: 20
+  - name: slowdrain
+    do:
+      - slow:
+          nodes:
+            - 1
+          secs: 5
+      - diskfill:
+          node: 0
+          mb: 16
+      - diskreadonly:
+          node: 0
+          state: on
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: healed
+    do:
+      - heal: all
+      - diskreadonly:
+          node: 0
+          state: off
+    until:
+      mesh_count: 2
+    timeout_s: 30

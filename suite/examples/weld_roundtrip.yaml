@@ -1,0 +1,58 @@
+# weld-roundtrip: probe gate, up,
+# split with sustain absent, reunite.
+# Domain 64 sits in the ephemeral 60..69 slice.
+name: weld-roundtrip
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 150
+ros_peers:
+  - node: 0
+    distro: jazzy
+phases:
+  - name: probe
+    do:
+      - pub:
+          from: 0
+          text: weld-probe
+    until:
+      observed:
+        on: 1
+        text: weld-probe
+    timeout_s: 20
+  - name: up
+    do:
+      - pub:
+          from: 1
+          text: weld-a
+    until:
+      observed:
+        on: 0
+        text: weld-a
+    timeout_s: 40
+  - name: split
+    do:
+      - drop:
+          - 1
+      - pub:
+          from: 1
+          text: weld-b
+    sustain:
+      absent:
+        text: weld-b
+        on:
+          - 0
+    timeout_s: 10
+  - name: reunite
+    do:
+      - heal:
+          - 1
+      - pub:
+          from: 1
+          text: weld-c
+    until:
+      observed:
+        on: 0
+        text: weld-c
+    timeout_s: 60

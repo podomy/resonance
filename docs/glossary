@@ -1,0 +1,322 @@
+# Glossary
+
+Each entry says what the thing is, then how Resonance uses it.
+
+**netns.** Short for network namespace. A separate network stack with
+its own interfaces, addresses, and routes. Resonance puts each node
+in its own netns so packets must pass through the simulated radio.
+
+**TUN.** A virtual network card. Programs read and write packets
+through a file descriptor instead of a wire. Resonance opens one TUN
+per node and pumps packets between them.
+
+**gossip.** Nodes telling each other what they know, in rounds.
+Concord uses gossip for membership plus workload state; weld uses
+DDS discovery instead. Gossip is one SUT pattern, not the harness.
+
+**memberlist.** The gossip library Concord uses for membership. It
+probes peers, marks suspects down, and agrees on who is alive.
+
+**cgroup.** Short for control group. A kernel grouping that limits
+and tracks processes. Resonance puts each node in its own cgroup
+subtree (Concord nodes get per-node plus daemon subtrees).
+
+**Noise.** A framework for encrypted channels. Concord wraps peer
+traffic in Noise sessions keyed per node.
+
+**epoch.** A generation number. Each reassignment of work bumps the
+epoch so survivors can tell new assignments from stale ones.
+
+**tombstone.** A marker that says deleted. A stopped workload leaves a
+tombstone so reunion does not revive it.
+
+**journal.** An append-only log of what happened. Concord keeps one
+per node and scenarios grep it; weld echo nodes hold no state and
+keep none. Journal is a Concord SUT shape, not a harness shape.
+
+**kv store.** Short for key-value store. A small database of keys
+to values. Concord keeps workload state there beside the journal;
+weld keeps none.
+
+**registry.** An OCI server that stores container images. Each SUT
+node that serves images runs its own registry on port 8444 in
+image tests. Concord image tests run one per node; localhost
+registries are the test pattern.
+
+**catalog.** The list of images a registry holds. Tests read it back
+after pushing to prove the push landed.
+
+**allocator.** The run-id dispenser. `sim_run_acquire` hands out ids
+1..154 through a file lock so parallel runs map to disjoint names.
+
+**isolate_all.** The `SimNet` flag that puts every node in its own
+netns. Set means no host footprint. Clear means node 0 stays in the
+host namespace, which is the frozen check/ default.
+
+**underlay.** The harness's own wiring. Underlay addresses
+(`192.168.100.0/24`) connect TUN devices; the harness moves those
+packets and applies radio physics to them.
+
+**overlay.** The address range the binaries use among themselves
+(`10.0.0.0/16`). Binaries form their own mesh there and never see
+the underlay.
+
+**SUT.** Short for system under test. The binary the harness measures:
+Concord or Weld.
+
+**hold.** A fixed wait after a signal. The `until` condition latches,
+then the phase waits out the full `hold_s` before advancing.
+
+**phase.** One step of a scenario. A phase runs its `do` steps on
+entry, then waits for `until` or holds `sustain` until `timeout_s`.
+
+**sustain.** A condition that must hold for the whole phase timeout.
+Any violation fails at once. Used for holds that must never break,
+such as a tombstone staying absent.
+
+**forensics.** What a failed run saves before cleanup. Log tails,
+journal copies, and config dumps, collected while the files still
+exist and before the statedir wipe.
+
+**ROS.** Short for Robot Operating System. A framework for robot
+software. Weld tests use ROS peers beside echo nodes for pub/sub
+round trips.
+
+**DDS.** Short for Data Distribution Service. The messaging layer ROS
+uses to find peers. Weld discovery traffic passes through the mesh
+like any other packet.
+
+**mDNS.** Short for multicast DNS. Shouting on the local network to
+find peers. Blinding multicast turns this channel off while unicast
+keeps flowing.
+
+**frac.** Short for fraction. A progress line the executor prints as
+`suite: frac <phase> <num> <den>`. Sources are real events only:
+done `do` steps, `until` node-set changes, and once per second on
+`hold_s` or `sustain` dwells.
+
+**needs.** The list of abilities a YAML file requires. Unknown `needs`
+verbs fail lint; at run time unknown verbs skip. Each entry names a
+driver ability such as `workload.submit` or `weld.pub`.
+
+**do.** The list of steps a phase runs on entry. Steps name faults
+and sends: `drop`, `heal`, `move`, `kill`, `restart`, `submit`,
+`stop`, `pub`.
+
+**until.** The condition a phase waits for, then holds. The phase
+polls until the condition turns true, latches, waits out the full
+`hold_s`, and then advances. Flap clears the latch.
+
+**hold_s.** The fixed wait after an `until` condition latches. It
+needs `until` and must not exceed the phase `timeout_s`.
+
+**timeout_s.** The backstop in seconds. A phase fails when it runs
+past its own `timeout_s`; a file fails when it runs past the
+file-level `timeout_s`.
+
+**observed.** A weld-only round trip check. It asks whether the text
+sent from one node shows up where it should. Resonance checks the
+weld log, plus the ROS capture where a peer runs beside that node.
+
+**mesh_count.** A liveness count with no `on` key. It reports how
+many nodes look alive right now. On concord it reads the CLI alive
+count; on weld it counts live children.
+
+**ros_peers.** The list of ROS sidecars a weld file starts. Each
+entry names a node plus a distro (`humble`, `jazzy`, or
+`rolling`). Omit it when no `observed` check needs a ROS log.
+
+**durability.** What a `restart` keeps. Five names: `fresh`
+(wiped home, stranger), `preserve` (same home), `rekey_rotate`
+(same home, bumped key), `key_wipe` (same home, fresh key,
+same generation), `wipe_state` (same id and key, empty
+journal plus store). Weld allows `fresh` and `preserve` only.
+
+**skew.** A concord spawn variant that shifts one node clock by
+the `offset` string. Used to test time behavior.
+
+**anchor.** A concord spawn variant that starts one node as the
+provisioned rendezvous and points configs at it. Used to test
+discovery without multicast.
+
+**UDP-vs-TUN.** Two packet paths. One path carries simulated packets
+and the other carries real packets. UDP (`udp/udp.h`) is in-process
+delivery for tests with no binaries. TUN (`tun/tun.h`) is real
+packets through real devices for binaries. SUT binaries never call
+UDP; they use kernel sockets and a TUN (Concord binaries are the
+example). Use UDP for `make
+check` and small experiments; use TUN when a real binary must talk.
+
+**exit code.** How a child or helper reports done. Zero means ok,
+nonzero means fail, 127 means the child could not start. `weld_pub`
+needs exit 0 plus the sent confirmation; `run_teardown` children
+exit after TERM then KILL; suite files map helper results to pass,
+fail, or skip.
+
+**ProgView.** One progress row (`cmd/progress.h`). It records which
+file, which phase, and how far. It holds the base name, the last
+phase text, a live flag, plus a 0-based phase index and total for
+known files. Zero total means unknown. `prog_want` gates drawing on
+tty without tap or json; `prog_color` gates color on TERM plus
+NO_COLOR.
+
+**run verdict.** What setup reports (`run/run.h`). Values are go,
+skip, or fail. `RUN_OK` means go, `RUN_SKIP` means a precondition is
+missing such as TUN permission, `RUN_FAIL` means a hard error. TUN
+open failure is a skip; the rest is a fail.
+
+**suite verdict.** What one file reports (`suite/exec.h`). Values
+are pass, fail, or skip with a reason. `SUITE_PASS` means the file
+passed, `SUITE_FAIL` means it failed, `SUITE_SKIP` means its needs
+or binaries are absent.
+
+**why buffer.** Where a suite call writes its reason. It is a text
+slot for skip or failure. Callers pass `why` plus `why_n`; the
+callee writes at most `why_n` bytes with NUL end, empty on success,
+skip reason or first failure text on skip or fail.
+
+**TUN map.** Which device belongs to which node (`tun/tun.h`). It is
+a table from file descriptor and IP to node id. `TunMap` holds up to
+`TUN_MAP_MAX` slots; `tun_map_add` records one; `tun_pump_fd` reads
+from one slot and forwards through the radio check.
+
+**SimNet.** One run network names (`sim/sim.h`). It holds the seven
+names that keep parallel runs apart. Statedir, netns prefix, TUN
+prefix and base, underlay /24, cgroup root, plus `isolate_all`. Run
+0 is the historic default; `sim_run_acquire` plus
+`sim_net_try_for_run` mint disjoint values for runs 1..154.
+
+**agree.** Nodes reporting the same assignment. In Concord journals
+one `AssignedNodeID` per node is recorded; unanimity means all
+nodes agree. Resonance `agree` holds when each node reports the same
+non-nil id for every member of the named set.
+
+**assigned_on.** Placement on one node. In Concord journals the
+node each workload was assigned to is recorded. Resonance
+`assigned_on` holds when the named node reports a non-nil
+`AssignedNodeID` for every member of the named set.
+
+**image.** The container a workload runs. In Concord journals it
+is recorded per node. Resonance `image` holds when every `on`
+node journal reports the wanted value for every member of the
+named set, and `update` moves the set to a new value.
+
+**bins.** The per-node binary map. A top-level table from node
+index to binary path for mixed-version runs. Resonance boots the
+default binary, then preserve-restarts each listed concord node
+into its binary once; weld spawns each node straight into its
+bin. Missing binaries skip the run.
+
+**nomcast.** A phase with multicast blinded. `multicast: off`
+pumps that phase through `tun_pump_fd_nomcast`, so IPv4 multicast
+goes blind while unicast keeps flowing. Resonance uses it with an
+anchor spawn to prove discovery without multicast.
+
+**qos.** Shaping on one pump path (`tun/tun.h`). Loss share, base
+plus jitter delay, cap rate, dup chance, slow gate, seed. A `drop`
+mapping arms it per fd; `heal` clears every slot at once.
+
+**slow.** A deferred drain. `slow` arms `TunQos` `slow_secs` on the
+listed nodes. Resonance uses it to prove the mesh survives a
+stalled pump, then heals.
+
+**replay.** A weld-only text log publish. One payload per line, in
+order, from one node. Empty lines are skipped; lines cap at 1024
+chars. Resonance uses it to replay captured chatter through pub.
+
+**diskfill.** Concord disk pressure. `diskfill` fallocates the node
+filler file to `mb` MB; 0 removes it. Resonance uses it to prove
+behavior under a full state dir.
+
+**diskreadonly.** Concord writability flip. `diskreadonly` runs
+chmod a-w (on) or u+w (off) over the node state tree. It is an
+approximation, not block-device RO. Resonance uses it to prove
+read-only behavior, then reverses it.
+
+**journalcorrupt.** Concord journal damage. It truncates the node
+`journal.jsonl` then writes 8 bytes (`CORRUPT` plus newline), so
+readers see invalid JSON. Resonance uses it to prove recovery
+from a corrupt journal.
+
+**rate.** Pacing between issues. `rate` on `submit` (and parsed on
+`pub`) names msgs per sec. Resonance sleeps between counted
+submits; single issues ignore it. Timing stays coarse at the 2 s
+query rhythm.
+
+**metric.** A measured number the run emits. Printed as a `metric`
+timeline event with `key=value` text. Resonance emits `phase.<i>.ms`
+and `maxrss.mb` each phase; `present.<name>.ms` emits when first
+seen (first sight minus submit; same-ms reads 0 and is skipped).
+
+**event.** One timeline line the run prints. Shaped as `suite: ev`
+with time, kind, phase, message, and two numbers. Kinds are phase,
+step, marker, metric, verdict, or cond. Resonance prints them for
+phase begins and ends, applied steps, first marker sightings,
+condition outcomes, metrics, and verdicts.
+
+**disk cap.** A boot state size limit.
+`disk_cap_mb` names MB of private tmpfs over
+one Concord node state dir, 0 uncapped.
+Resonance boots capped nodes through
+`concord_spawn_ex`; restarts never carry a cap.
+
+**benchmark.** Sustained load by reusing submit or pub in a
+paced loop. Resonance runs one benchmark step per phase and
+emits count, loss, p50, p99, max, target, overrun, plus
+per-message latency and bucket counts.
+
+**latency.** Per-message delay in milliseconds. Resonance
+measures submit to list sighting or pub to observed log match;
+sub-millisecond reads as 0. Report plots .lat series over time.
+
+**histogram.** Bucketed latency counts. Resonance emits
+.hist.<b> per bucket; the report draws one bar chart per stem
+and phase with bars labeled by bucket index.
+
+**overrun.** Shortfall flag. Resonance sets overrun to 1 when
+issued fell short of wanted, else 0. It never fails the step;
+the phase condition still gates pass.
+
+**ramp.** An adaptive ceiling ladder. One benchmark step runs
+rising rates itself, stopping on loss or p99 plus hard rate,
+step, and time backstops. Resonance reads `ramp:` inside
+`benchmark:` and emits per-step leaves plus a numeric ceiling
+rate with a marker reason.
+
+**ceiling.** The top passing rate of an adaptive ramp. Resonance
+emits it as `bench.<ph>.<k>.ceiling.rate`, with the stop reason
+(`loss`, `p99`, `max_rate`, `max_steps`, or `max_duration`) on a
+marker event, never as text.
+
+**warmup.** Leading issues sent but left out of stats and loss.
+Resonance drops them before `count`, `loss`, and latency math;
+`warmup` must sit below `count` when `count` is present.
+
+**pong.** The echo reply channel. A benchmark relay republishes
+each line byte identical to `<topic>/pong`; roundtrip latency is
+reply sighting minus send.
+
+**send_ns.** The sender timestamp in a bench payload. Monotonic ns
+taken per issue at send; the observer subtracts it from the log
+sighting to get latency.
+
+**primitive.** One named send or observe verb in the probe
+registry. Sends are `weld-pub`, `ros-pub`, `workload-submit`;
+observes are `log-contains`, `ros-log-contains`, `journal-has`,
+`workload-running`. Each wires to the existing driver path
+(`suite/exec.h`).
+
+**desugar.** The old sugar to registry mapping. Old `from`,
+`on`, `topic`, `text`, `node`, `image`, `as`, and `flags`
+keys mean the same send or expect entry. New `send` plus
+`expect` blocks name the entries directly.
+
+**placeholder.** A template slot in `payload` or `match`
+text. Spelled `{{seq}}`, `{{send_ns}}`, `{{body}}`,
+`{{wid}}`. Resonance expands them per issue; unknown
+names fail lint and `wid` outside submit fails loudly.
+
+**match rule.** How an `expect` proves an issue landed.
+Log expects grep the full payload prefix, never content;
+journal expects compare one field to one value; list
+expects want the state `running`.

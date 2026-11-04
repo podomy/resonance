@@ -9,10 +9,13 @@
  * In-process UDP for C tests and scenarios.
  * Raw Concord binaries will not call this; they use
  * kernel sockets and a TUN. Keep this module for
- * make check and small experiments.
+ * make test and small experiments.
  */
 
 static constexpr int UDP_BIND_MAX = 16;
+
+// Binds fit in Context.udp_binds; non-empty.
+static_assert(UDP_BIND_MAX > 0);
 
 typedef struct {
     uint64_t node_id;

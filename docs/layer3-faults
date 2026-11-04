@@ -73,12 +73,11 @@ Timers that schedule faults
 
 Three timer flavors appear in check/ scenarios, all built on the
 same arms-on-first-call pattern: store t0 on first call, fire N
-seconds later. Twenty-six check/ files carry that pattern as a
-byte-identical hold() helper, frozen there; the rest use the same
-pattern inline (for example check/concord_restart.c:95-102). The
-shared run_hold (run/run.h:95, body in run/run.c:351-358)
-mirrors the same semantics for new code. YAML
-scenarios use hold_s plus timeout_s keys instead, run by
+seconds later. check/ files carry that pattern inline with t0
+plus HOLD_* (for example check/concord_restart.c:95-102),
+frozen there. The shared run_hold (run/run.h:136-139, body in
+run/run.c:643-653) mirrors the same semantics for new code.
+YAML scenarios use hold_s plus timeout_s keys instead, run by
 run_hold inside suite/exec.c.
 
 - HOLD_UP (usually 8 s, check/-only): mesh must be up and settled

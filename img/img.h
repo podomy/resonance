@@ -9,12 +9,14 @@ static constexpr int IMG_PORT = 8444;
 // containers. Everything here is local bytes and local
 // HTTP: no docker, no base pulls, no network.
 //
-// Each Concord node runs its own registry on :8444. The
-// helpers talk to node i's registry from inside its own
-// network namespace (host netns for node 0), so no byte
-// crosses the sim mesh and the pump never stalls. The
-// filesystem is shared across namespaces, so image files
-// stay in one place.
+// Each SUT node that serves images runs its own OCI
+// registry on :8444. The helpers talk to node i's
+// registry from inside its own network namespace
+// (host netns for node 0), so no byte crosses the
+// sim mesh and the pump never stalls. Localhost
+// registries are the test pattern: the filesystem
+// is shared across namespaces, so image files stay
+// in one place.
 //
 // A push tars rootfs_dir as one layer, writes a minimal
 // config and manifest, and PUTs all three into the

@@ -1,0 +1,263 @@
+Benchmark measurement standard
+
+This file is canonical for what benchmarks
+mean: wire format, clocks, matching, the
+endpoint model, patterns, sizes, needs,
+and metric keys. docs/yaml stays the
+schema reference: key shapes plus lint
+bounds live there and it points back
+here. Split in one line: meaning lives
+here, shape lives in docs/yaml.
+
+Wire format
+
+Each weld issue sends one payload shaped
+
+  bench#seq#send_ns#body
+
+seq is the zero based per-step index.
+send_ns is the sender CLOCK_MONOTONIC
+reading in ns taken per issue at send
+time. body is N x bytes when
+payload_bytes is set, else the user text
+verbatim. The tag alone stays below 64
+bytes. Tag plus the largest body fits
+the 66000 byte issue buffer, so builds
+never truncate.
+
+send_ns clock rule
+
+Stamps come from CLOCK_MONOTONIC on the
+sender, read fresh for every issue. A
+clock failure reads zero and that issue
+counts as loss, never as a sample. All
+nodes on one host share the same
+monotonic clock, so one-way latencies
+compare directly. Across hosts the
+clocks differ: bound the skew first, or
+latency reads skewed by it.
+
+Full-prefix matching rule
+
+The observed path rebuilds the exact
+full payload (tag plus body) and greps
+the logs for that whole string. Matching
+anchors on the full prefix, never on
+content, so user text holding tag-like
+text can never confuse it. Old two-field
+tags (bench#N# plus text, no send_ns)
+fail lint loudly and never parse.
+
+Endpoint model
+
+Dispatch runs on capability, not SUT.
+The table names the verbs per kind:
+
+  weld: pub via weld_pub; observe via
+    weld log, plus the ROS capture where
+    a peer runs beside the node; relay
+    via weld_relay_start; never submits.
+  ros: pub via ros_pub_once; observe via
+    ROS log only; never relays.
+  concord: no pub, log, or relay verb;
+    submit via concord_submit, list via
+    concord_list_has.
+
+Pairing rule: from: names any kind with
+a pub verb (weld or ros); on: names any
+kind with an observe verb (weld dual
+logs legacy, or ros only). Bare N means
+the file default kind (weld in weld
+files, concord in concord files);
+weld:N is an alias for bare in weld
+files; ros:N names the ROS peer;
+concord:N names concord. The concord
+submit family uses node:, image:, as:
+instead and pairs only where verbs
+exist: submit plus list.
+
+Loud-failure rule: bad pairs fail lint
+(plus a runtime backstop) naming the
+missing verb, for example concord
+cannot publish: no pub verb, concord
+cannot observe: no log verb, ros cannot
+relay: no relay verb. Adding a kind is
+a table row, not new branches.
+
+Traffic patterns
+
+One-way: no echo: key. Publish from
+from:, watch the full payload land on
+on:. Where a ROS peer runs beside the
+observed node, the ROS capture must hold
+it too; with no peer, the weld log
+alone decides. Concord matches the full
+workload id in lists, so 8-char list
+prefixes cannot collide; OUT_LEN
+truncation may still miss, and the 10 s
+pumped grace dwell covers it.
+
+Roundtrip: echo: {by, node}. The run
+starts a pong relay on the echo node
+for the step, then stops it. The reply
+topic is always <topic>/pong, where
+topic is explicit or run derived. RTT is
+reply sighting minus send, through the
+same stats. by picks weld (dual logs)
+or ros (ROS only), same rule as on;
+concord by fails (no log verb). The
+relay node must relay (weld only), and
+echo needs relay.echo in needs.
+Calibration note: the relay hop is part
+of the measured RTT, so compare
+roundtrip numbers against one-way
+baselines on the same pair and build,
+and keep relay placement fixed across
+compared runs.
+
+Stepped ladders: one benchmark per phase
+at rising rate, count, or size; read
+tables across phases to find the knee.
+Multi-phase ladders still work and stay
+the shape for concord sweeps.
+
+Adaptive ramp: a ramp: block inside one
+benchmark (never a mode: ramp key).
+Fields: start_rate, step_rate,
+step_duration_s, max_rate, max_steps
+1..10, max_duration_s, plus loss_pct
+0..100 and/or p99_ms 0..3600000; at
+least one stop is required. Top level
+rate, count, duration_s, and warmup are
+forbidden with ramp. Per-step want is
+rate times step_duration_s, capped like
+non-ramp (weld 1000, concord 100);
+concord total (steps times max rate
+times step dur) stays below 128 by
+lint. The executor runs the ladder:
+measure a step, decide up or stop.
+Bounds prove end: steps 1..10, time
+1..3600 s, rate 1..1e6 rising by at
+least 1, each step bounded by
+step_duration plus grace.
+
+Ceiling semantics: the top passing rate
+is the ceiling. A passed step raises
+it; the first stopped step ends the
+ladder. The stop reason is one of loss,
+p99, max_rate, max_steps, max_duration.
+
+Payload sizes
+
+payload_bytes is 0..65536; 0 or absent
+means use text. A set body is N x bytes,
+deterministic, never user text. Audit,
+largest first: tag plus 65536 body plus
+NUL fits the 66000 issue buffer; the
+132000 file needle buffer holds the full
+body, so end to end still matches; weld
+pub argv fits (ARG_MAX 2 MB, per-string
+128 KB, so 64 KB passes, 1 MB needs
+chunking); ROS yaml holds tag plus
+65536 (driver ROS_YAML_LEN), so both
+sides sweep the same sizes; TUN
+fragments at IP level
+(MTU 1500, pump reads 2048), so large
+still forwards; log pipes chunk at 2048
+but file overlap still finds; the relay
+pump uses getline with no cap. 64 KB
+covers point clouds; 1 MB images need
+chunking plus larger argv and DDS
+checks. Sweeps are repeated phases with
+different payload_bytes; no sweep
+syntax exists.
+
+Needs entries
+
+Benchmarks use these file needs verbs:
+
+  ros.pub: from: ros:N in a benchmark,
+    or any ros_pub step.
+  relay.echo: any echo: block.
+  ros.peer: a beside peer where the
+    observed path must also match the
+    ROS capture.
+  metrics.scrape: any prometheus-scrape
+    expect. Generic, same for weld plus
+    concord.
+  workload.* plus journal.* plus spawn.*:
+    as the queried conditions need;
+    plain weld or concord benchmarks add
+    no extra need of their own.
+
+Metric keys
+
+Every bench.* key rides metric events
+only, through the shared metric site,
+so TAP and JSON bytes never move. Units:
+counts are issues, .ms leaves are whole
+ms over seen ids (0 when none seen),
+.us leaves are whole us over seen ids,
+rate_ach is integer msgs per sec. p50
+and p99 use nearest rank
+ceil(pct*n/100) over ascending hits;
+sub-ms ticks read 0 in ms, spread in
+us. Loss never fails
+the step; the phase condition still
+gates pass.
+
+Per-step leaves, bench.<ph>.<k>.*:
+
+  count: non-warmup issued.
+  loss: never seen in the 10 s pumped
+    grace dwell, or total when the
+    scrape gate fails.
+  target: wanted non-warmup issues.
+  overrun: 1 when issued fell short of
+    wanted, else 0.
+  p50.ms, p99.ms, max.ms: over seen ids.
+  p50.us, p99.us, max.us: over seen ids
+    in us.
+  scrape_ok: 1 when the scrape threshold
+    holds, 0 else; only with
+    prometheus-scrape expect.
+  rate_ach: total issued times 1e9 over
+    issue loop ns (zero dwell reads
+    total).
+  lat: ms per seen id, at most 2000
+    points per step, then stop.
+  lat_us: us per seen id, same cap.
+  truncated: 1 when lat hit the cap.
+  hist.<b>: counts under fixed edges 1
+    2 5 10 20 50 100 200 500 ms, 10
+    buckets 0-1 up to 500 plus; only
+    nonzero buckets emit.
+  hist_us.<b>: counts under us edges
+    100 500us, 1 5 10 20 50 100 500ms,
+    10 buckets; only nonzero emit.
+
+Per-ramp-step leaves,
+bench.<ph>.<k>.ramp.<i>.*: count, loss,
+target, overrun, p50.ms, p99.ms,
+max.ms, p50.us, p99.us, max.us,
+rate_ach. No lat or hist, to
+keep logs bounded.
+
+Summary leaves:
+bench.<ph>.<k>.ceiling.rate is the top
+passing rate, numeric.
+ceiling.limited_by rides a marker event
+(text would break numeric plots), one of
+loss, p99, max_rate, max_steps,
+max_duration.
+
+Worked shapes: bench_weld.yaml (weld pub
+form), bench_concord.yaml (concord
+submit form), bench_roundtrip.yaml
+(echo), bench_generic_pair.yaml
+(pairing), bench_ros_baseline.yaml (ROS
+drive), bench_size_sweep.yaml,
+bench_large_payload.yaml,
+bench_ramp.yaml (ladder),
+bench_ramp_adaptive.yaml (ramp), all
+under suite/examples/.

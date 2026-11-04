@@ -1,0 +1,54 @@
+# bench-size-sweep: payload size
+# sweep as repeated phases. No sweep
+# syntax exists; each phase runs one
+# benchmark with a different
+# payload_bytes. Body is N x bytes
+# deterministic when set; 0 or
+# absent means use text. Here small
+# 64, medium 256, large 1024, all at
+# 5/sec, three issues, one warmup.
+# Unrunnable here: needs weld plus
+# TUN, lint proves shape only.
+name: bench-size-sweep
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 120
+phases:
+  - name: small
+    do:
+      - benchmark:
+          from: 0
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+          payload_bytes: 64
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: medium
+    do:
+      - benchmark:
+          from: 0
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+          payload_bytes: 256
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: large
+    do:
+      - benchmark:
+          from: 0
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+          payload_bytes: 1024
+    until:
+      mesh_count: 2
+    timeout_s: 30

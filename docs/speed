@@ -39,7 +39,7 @@ run --jobs N runs one child per YAML file against those networks.
 Wall time for the YAML suite drops toward the slowest single file
 instead of the sum. The remaining limit is host-table collisions for
 runs that keep node 0 in the host namespace: both claim the host
-224.0.0.0/4 route and bind port 7946 on node 0 (sim/sim.c:310-323).
+224.0.0.0/4 route and bind port 7946 on node 0 (sim/sim.c:357-371).
 Parallel runs use the isolated path, which the suite executor always
 selects. The 33 check/ Concord files stay serial and frozen.
 
@@ -63,9 +63,10 @@ in per-phase timeout_s plus file-level timeout_s.
 Holds still wait out the clock. Both the check/ loop and the
 suite executor wait the full hold after the mesh signal. In check/,
 seen3 gates hold(), but hold() still waits out all 8 s. In the
-executor, run_until (suite/exec.c:3389-3504) latches when the
+executor, run_until (suite/exec.c:7397-7551) latches when the
 until condition first holds, then waits the full hold_s through
-run_hold (run/run.h:95); flap clears the latch and restarts the wait. There is no
+run_hold (run/run.h:136-139); flap clears the latch and restarts
+the wait. There is no
 early advance on events in either path. Do not retrofit timing
 changes into check/; frozen scenarios keep their timings.
 

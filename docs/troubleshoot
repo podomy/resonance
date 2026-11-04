@@ -1,0 +1,241 @@
+Troubleshoot: common failures and cleanup
+
+Match the symptom, run the named check, apply the named fix.
+Privileged steps below are code-read only; they were not run here
+beyond unprivileged doctor and lint. CLI lives at cmd/main.c.
+
+TUN permission denied
+
+No TUN means no mesh, so runs skip instead of failing.
+
+Symptom: suite why holds skip (errno
+text) with stdout suite: skip <name>
+(errno text) (suite/exec.c:8067-8082),
+or sim prints skip (errno) on host tun
+open (sim/sim.c:971-974), or check TUN
+tests print tun_netns: skip (errno) and
+tun_drop: skip (errno)
+(check/tun_netns.c:45,
+check/tun_drop.c:45). Errno is often
+Permission denied.
+
+Confirm with bin/rsuite doctor
+(cmd/main.c:2465-2520): read euid root,
+/dev/net/tun, and netns list lines.
+MISSING (not root) plus MISSING (no tun
+access) point here. Doctor exits 0
+with the report even then; 1 only on
+probe error.
+
+Fix: rerun with root for netns plus
+TUN, as in bin/rsuite run which needs
+root (docs/overview commands).
+Silent make test skips are expected
+without privs (test recipe in the
+Makefile, docs/layer5-runner:79-88);
+they are not failures.
+
+Docker absent
+
+Weld needs docker, concord does not.
+
+Symptom on weld files only: why holds
+skip no docker with stdout suite: skip
+<name> no docker (suite/exec.c:7971-7984).
+Probe runs docker info with a bound;
+missing, failing, or hung daemon counts
+as must-skip, never a stall
+(driver/weld.c:508-562). Doctor shows
+docker daemon MISSING (daemon down)
+(cmd/main.c:2499-2500).
+
+Fix: start the docker daemon, confirm
+doctor says OK, rerun. Concord files
+are unaffected; only the weld branch
+checks docker (suite/exec.c:7950-7984).
+Do not rebuild images; this is daemon
+presence, not image content.
+
+Binary missing
+
+No binary means nothing to run, so runs skip.
+
+Concord symptom: why holds skip no
+<bin> with stdout suite: skip <name> no
+<bin> when access X_OK fails on
+./bin/concord or SuiteOpts concord_bin
+(suite/exec.c:7930-7949, access in
+7936). Check shape is the same: skip no
+./bin/concord (e.g. check/concord_two
+path). Weld symptom is the same bytes
+via weld_skip_unless_bin, null means
+default path (driver/weld.c:497-505,
+suite/exec.c:7951-7970).
+
+Fix: build ./bin/concord by hand from a Concord checkout
+(cd deps/concord && go build -o $PWD/bin/concord ./cmd/concord).
+For image tests also run make img-build
+to fill img/rootfs with probe plus
+probe-check offline; concord_img needs those bins at run
+time. Then rerun.
+Do not edit YAML to dodge the skip.
+
+Port and route collisions
+
+Two host runs fight over one host route and one port.
+
+Symptom: second run fails setup or
+flaps while first still lives. Cause:
+two runs with a host node both claim
+the host 224.0.0.0/4 route and both
+bind port 7946 (sim/sim.c:364-368,
+docs/speed:40-44). Memberlist binds
+0.0.0.0:7946 with advertise and anchor
+addrs at under.octet:7946
+(sim/sim.c:1422-1449).
+
+Fix: run isolated or serial. Isolated
+runs with distinct nets share only the
+allocator file (run/run.c:585-591).
+Executor always selects isolated with
+per-run statedir, ns prefix, tun base,
+octet, and cgroot (suite/exec.c:8026-8029,
+sim/sim.c:372-410). Check files keep
+host node 0 and stay serial and frozen
+(docs/speed:40-44). If colliding, stop
+one run or move both to bin/rsuite run
+which isolates.
+
+Full stale-state cleanup recipe
+
+Dead runs leave names, dirs, and ids behind. Remove them in this
+order. All privileged lines are code-read only from teardown and
+setup paths; they were not executed here.
+
+1. Netns names. List with ip netns list,
+then delete each resonance name with
+ip netns del <name>. Source adds with
+ip netns add <prefix><i> after del for
+retry (sim/sim.c:760-770) and deletes
+one by one in teardown
+(sim/sim.c:869-922). Filter for the
+resonance prefix only; do not delete
+other names.
+
+2. Cgroup subtree. Teardown runs rmdir
+on each <cgroot>/node<i> then on
+<cgroot> with stderr nulled, empty only
+(sim/sim.c:896-922). By hand remove
+leaves first, code-read only:
+
+sudo rmdir /sys/fs/cgroup/resonance/node*/daemon 2>/dev/null
+sudo rmdir /sys/fs/cgroup/resonance/node* 2>/dev/null
+sudo rmdir /sys/fs/cgroup/resonance 2>/dev/null
+sudo rmdir /sys/fs/cgroup/resonance-*/node*/daemon 2>/dev/null
+sudo rmdir /sys/fs/cgroup/resonance-*/node* 2>/dev/null
+sudo rmdir /sys/fs/cgroup/resonance-* 2>/dev/null
+
+Rmdir removes empty dirs only, so
+strays fail silently by design. Do not
+use rm -rf on cgroupfs.
+
+3. Statedirs. Teardown wipes with
+rm -rf <statedir> after revalid plus
+netns delete (run/run.c:790-799). By
+hand, code-read only:
+
+sudo rm -rf /var/tmp/resonance
+sudo rm -rf /var/tmp/resonance-*
+
+Restart also wipes one node dir with
+rm -rf <statedir>/node<i>
+(sim/sim.c:1740-1747). Forensics aside
+dirs live beside statedir at
+<statedir>-fail/suite-<secs>
+(suite/exec.c:7785-7789) and survive
+the wipe; remove them only when done
+with post-mortem:
+
+sudo rm -rf /var/tmp/resonance-fail /var/tmp/resonance-*-fail
+
+4. Allocator counter plus temps. Ids are
+monotonic with no reuse; wipe the
+counter file to reset after runs end
+(sim/sim.h:88-90). Lock file needs no
+clean: flock frees on close or crash so
+stale locks are impossible
+(sim/sim.h:90-91). Publish temp is
+<counter>.tmp.<pid> swept under lock
+plus unlinked on all errors
+(sim/sim.c:524-556,695-739). By hand,
+code-read only:
+
+sudo rm -f /var/tmp/resonance-runs.counter
+sudo rm -f /var/tmp/resonance-runs.counter.tmp.*
+
+Leave /var/tmp/resonance-runs.lock in
+place. Doctor checks lock plus counter
+R plus W and lock dir W plus X
+(cmd/main.c:2501-2515); MISSING after
+wipe is normal until next acquire.
+
+5. Rsuite log dirs. Fresh per-run dir
+under /var/tmp via mkdtemp
+/var/tmp/resonance-rsuite-XXXXXX
+(cmd/main.c:689-702) with per-file
+<base>.log plus <base>-N.log on clash
+(cmd/main.c:764-807). Nothing cleans
+them by design (cmd/main.c:364-405).
+By hand when done reading them:
+
+rm -rf /var/tmp/resonance-rsuite-*
+rm -rf <any custom --log-dir run dir>
+
+Check size first with du -sh.
+
+6. Img tmp files. Per-process scratch
+/tmp/resonance-img-<pid>-<name> for
+hdrs, body, hdump, code
+(img/img.c:85-92,106,155-157) plus
+per-push -layer.tar, -config.json,
+-manifest.json (img/img.c:232-240). No
+auto unlink. By hand:
+
+rm -f /tmp/resonance-img-*
+
+Post-mortem path
+
+Failed runs save clues before wiping. Read the clues in this order.
+
+1. Rerun or keep IMG_DEBUG=1 for image
+push detail. When set, put_manifest
+prints [img] manifest code, body, and
+hdrs lines (img/img.c:174-196). Use it
+for diagnosis only; suite default stays
+quiet.
+
+2. Find the forensics dir line on
+stderr: suite: forensics at <dir>
+(suite/exec.c:7837-7839). Dir is
+<statedir>-fail/suite-<secs> with
+copies of weld plus ros logs on weld,
+or journal plus config plus node logs
+on concord (suite/exec.c:7794-7828).
+Open that dir; the live statedir is
+already wiped by run_teardown
+(run/run.c:790-799).
+
+3. Read per-node log tails. Forensics
+prints --- <log-path> plus bytes for
+each node log, or no <log-path> when
+missing (suite/exec.c:7706-7747). Concord
+tails <statedir>/node-<i>.log; weld
+tails <statedir>/weld-<i>.log plus
+<statedir>/ros-<i>.log where a peer runs
+(suite/exec.c:7770-7784, log_path in
+4572-4586). Grep those tails for
+"level":"error" plus peers markers as
+check forensics does
+(docs/layer4-observation:26-33), then
+open the full per-file log in the
+rsuite run dir for phase context.

@@ -23,6 +23,10 @@ struct Context {
     size_t udp_bind_n;
 };
 
+// udp_binds capacity matches UDP_BIND_MAX.
+static_assert(sizeof((Context){}.udp_binds) /
+    sizeof(UdpBind) == (size_t)UDP_BIND_MAX);
+
 bool context_init(Context* ctx, size_t heap_capacity,
                   uint64_t seed);
 void context_free(Context* ctx);

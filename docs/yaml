@@ -1,0 +1,1032 @@
+YAML scenario reference
+
+This file tells scenario authors what keys exist, which values pass
+lint, and what the runner proves. Read the worked example first to
+see a full file, then the key sections to author, then Limits before
+submitting. When this file and older prose disagree, the code wins.
+Lint with:
+
+  make suite-lint
+
+Run with bin/rsuite run (needs root for netns plus TUN). List with
+bin/rsuite list. Integers accept bare or quoted digits. Extra keys
+fail lint. If lint fails, fix the named key and rerun lint: nothing
+ran yet. If you skip this reference and copy an old file, you will
+fail lint on a renamed or scoped key.
+
+Top-level keys
+
+The top map names the system under test, the cluster size, the
+backstop timeout, and the phases that prove behavior. Get the SUT
+key right first: it gates every scoped key below, and a weld-only
+key on a concord file (or reverse) fails lint. The top map allows
+exactly 13 keys. Unknown keys fail lint.
+
+name. Required. Non-empty string, max 63 chars. Scope: both. Wrong
+shape fails lint; a blank or over-long name never runs.
+
+  name: mesh-two
+
+version. Required. Int equal to 1. Scope: both. Any other number
+fails lint; version pins the schema.
+
+  version: 1
+
+sut. Required. String concord or weld. Scope: both. It gates every
+SUT scoped key below. Pick wrong and half the file fails.
+
+  sut: concord
+
+nodes. Required. Int 1..100. Scope: both. All node indices in the
+file must be 0..nodes-1. Too many nodes fails lint; an index past
+the end fails lint too.
+
+  nodes: 2
+
+needs. Optional. List of strings, default none. Scope: both, but
+each verb is SUT scoped (see Needs table). Lint rejects unknown
+verbs. Runtime keeps a skip branch for verbs the linter cannot know.
+Code wins: unknown fails lint today; it would skip if it ever
+reached runtime. Omit needs when the file uses only the base
+abilities.
+
+  needs:
+    - workload.submit
+
+domain. Required on weld, forbidden on concord. Int 0..101. Scope:
+weld-only. Picks the DDS domain id passed to every weld spawn. A
+concord file with domain fails lint; a weld file without it fails
+lint.
+
+  domain: 64
+
+topic. Optional on weld, forbidden on concord. Scope: weld-only.
+Shape: leading slash, then alnum, slash, or underscore, max 127
+chars. Default: derived per run as a chatter path with run id, pid,
+seconds, and sequence. Explicit topics pin one channel; derived
+topics keep parallel runs apart. If parallel runs hear each other,
+you pinned one topic where the default would have split them.
+
+  topic: /chatter_demo
+
+spawn. Optional mapping, default plain spawn with no args. Keys:
+variant, node, offset. variant is plain, anchor, or skew. node is an
+int 0..nodes-1. offset is a non-empty string, max 63 chars. Scope:
+variant, node, and offset are concord-only when non-plain. On weld,
+variant must stay plain and node plus offset must be absent. skew
+needs node plus offset; anchor needs node. Plain ignores node and
+offset at runtime. skew sets the clock offset on one node; anchor
+starts one node with anchor and points configs at it. If skew lacks
+node or offset, lint fails.
+
+  spawn:
+    variant: plain
+
+  spawn:
+    variant: anchor
+    node: 0
+
+  spawn:
+    variant: skew
+    node: 1
+    offset: "100ms"
+
+ros_peers. Optional list, default none. Scope: weld-only. Lint never
+requires it; it is omittable in every file. Semantics: entries start
+ROS peers beside weld nodes. Each entry is a mapping with node (int
+0..nodes-1) plus distro (humble, jazzy, or rolling). List must be
+non-empty when present, max 100 entries. Add an entry only when an
+observed check must also see the text in that node's ROS capture
+(see observed). Extra peers slow the run for no verdict gain.
+
+  ros_peers:
+    - node: 0
+      distro: jazzy
+
+bins. Optional mapping, default none. Scope: both. Maps a node
+index to a binary path for mixed-version runs. Each key is a node
+index 0..nodes-1; each value is a non-empty path string, max 191
+chars. The map must be non-empty when present. Origin need:
+spawn.bins on either SUT. Missing binaries skip the run like a
+missing default binary. Concord boots the default binary, then
+preserve-restarts each listed node once into its binary at
+startup (the driver has no per-node spawn verb, so bins is a
+spawn plus per-node restarts). Weld passes each per-node bin
+straight to its per-node spawn.
+
+  bins:
+    1: ./bin/concord-v2
+
+disk_cap_mb. Optional int, default 0. Scope:
+concord-only. Boot state cap in MB, 0..65536;
+0 means uncapped. A nonzero cap boots through
+concord_spawn_ex, which mounts a private tmpfs
+of that size over the node state dir, on the
+plain and bins paths alike. Restarts never
+carry a cap. On weld, or above 65536, lint
+fails. No check/ shape exists; the driver verb
+is concord_spawn_ex in driver/concord.h.
+
+  disk_cap_mb: 512
+
+timeout_s. Required. Int 1..3600. Scope: both. File backstop: any
+phase still running past this fails with file timeout.
+
+  timeout_s: 45
+
+phases. Required. Non-empty list of phase maps. Scope: both.
+Duplicate phase names fail lint.
+
+  phases:
+    - name: mesh
+      until:
+        peers: 2
+        on: all
+      timeout_s: 45
+
+Phase keys
+
+Each phase does steps on entry, then waits for one condition or
+holds one invariant until its timeout. Keep phases small and
+ordered: prove mesh first, then fault, then reunite. Every reunion
+verdict assumes a meshed start, so a file that faults before proving
+mesh proves nothing about recovery.
+
+Phase map allows exactly 7 keys: name, do, until, sustain, hold_s,
+timeout_s, multicast. Unknown keys fail lint.
+
+name. Required. Non-empty string, max 63 chars. Scope: both. Must be
+unique per file.
+
+  name: mesh
+
+do. Optional. List of step maps, default empty. Scope: both. Steps
+run in file order on phase entry, before the poll. Each step map
+holds exactly one verb key.
+
+  do:
+    - drop: all
+
+until versus sustain. Exactly one of the two must be present, never
+both, never neither. Scope: both. until waits for its one condition,
+latches, waits out hold_s, then advances; flap clears the latch.
+sustain must hold for the whole timeout_s; any violation fails at
+once. Pick until to prove something appears; pick sustain to prove
+something never leaks. Mixing them fails lint.
+
+  until:
+    peers: 2
+    on: all
+
+  sustain:
+    absent:
+      text: weld-b
+      on: [0]
+
+hold_s. Optional. Int 0..3600, default 0. Scope: both. Needs until;
+hold_s with sustain fails lint. Must not exceed the phase timeout_s.
+
+  hold_s: 8
+
+timeout_s. Required. Int 1..3600. Scope: both. Phase backstop.
+
+  timeout_s: 45
+
+multicast. Optional. String on or off, default on. Scope: both.
+That phase pumps through tun_pump_fd_nomcast, so IPv4 multicast
+(224.0.0.0/4) goes blind while unicast gossip, sync, and Noise
+keep flowing: anchor discovery alone must carry the phase. Use it
+with a skew or anchor spawn to prove discovery without multicast.
+Origin need: net.nomcast is concord-only; a weld file that
+declares it fails lint, but the phase key itself works on both.
+
+  multicast: off
+
+One condition per phase. A condition map holds exactly one of peers,
+marker, present, absent, observed, assigned, mesh_count, agree,
+assigned_on, epoch, image. Chain
+phases for AND. Named workloads allow several submits per file;
+a bare second submit fails (see Second-submit rule in Limits).
+Mesh before fault: authoring rule, not lint.
+Prove mesh in an early phase (peers or mesh_count), then fault in
+later phases.
+
+Step verbs (do entries)
+
+Steps change the world on phase entry: shape links, heal them, slow
+them, kill or restart nodes, move nodes, submit, update, or stop
+work, publish or replay chatter, or pressure disks. Each entry holds
+exactly one verb. Unknown verbs fail lint. Node
+indices are ints 0..nodes-1, quoted or bare. SUT scope is enforced
+per verb below: a concord-only verb on a weld file fails lint, and
+reverse.
+
+drop. Scope: both. Two shapes. Bare shape: the scalar all or a
+non-empty list of node indices. It marks legacy full drops in the
+poll pump. Use it to open a split; follow with heal to close it.
+
+  - drop: all
+
+  - drop: [1]
+
+Fault shape: a mapping with nodes plus any fault keys. nodes is all
+or a non-empty index list. Any fault key present selects the QoS
+path (even dir alone). Keys: loss 0..1 float, delay_ms 0..3600000,
+jitter_ms 0..3600000, kbps 0..1000000 (0 means uncapped), dup_pct
+0..100, dir out, in, or both (default out). Out shapes the listed
+fds; in shapes every other fd (sender-side approximation, also
+shaping third-party traffic); both shapes all fds. QoS mirrors
+tun/tun.h: loss is deterministic from the seed, delay is never
+slept by the pump, kbps is a token bucket, dup resends a copy.
+Origin need: net.qos is concord-only; a weld file that declares
+it fails lint, but the step itself works on both. Ranges outside
+fail lint loudly.
+
+  - drop:
+      nodes: all
+      loss: 0.2
+      delay_ms: 50
+      jitter_ms: 5
+      dir: out
+
+heal. Scope: both. Bare shape only: the scalar all or a non-empty
+list of node indices. Fault keys never appear on heal; a mapping
+fails lint. Heal clears all pump faults at once: every QoS slot
+plus every directed edge, globally, plus the legacy drop marks in
+its scope (listed nodes, or all for heal all). A listed heal still
+clears QoS everywhere; only the legacy marks stay scoped.
+
+  - heal: all
+
+  - heal: [1]
+
+kill. Scope: both. Mapping with node plus signal. signal is KILL or
+TERM, mapped to SIGKILL or SIGTERM. Weld kills through the weld
+path; concord kills through the concord path. KILL is abrupt; TERM
+lets the node trap and exit.
+
+  - kill:
+      node: 0
+      signal: KILL
+
+restart. Scope: both for fresh and preserve; concord-only for
+rekey_rotate, key_wipe, and wipe_state. Mapping with node plus
+durability. Durability names: fresh, preserve, rekey_rotate,
+key_wipe, wipe_state. Weld with a durability past preserve fails
+lint. Runtime maps weld fresh and preserve to its two restart modes,
+and concord names to its five modes. preserve keeps state; fresh
+wipes it; the three key modes rotate or drop keys. Picking
+wipe_state on weld fails lint.
+
+  - restart:
+      node: 0
+      durability: fresh
+
+  - restart:
+      node: 0
+      durability: preserve
+
+  - restart:
+      node: 1
+      durability: rekey_rotate
+
+  - restart:
+      node: 1
+      durability: key_wipe
+
+  - restart:
+      node: 1
+      durability: wipe_state
+
+move. Scope: both. Mapping with node plus x_m. x_m holds meters;
+grammar is decimals: digits, dot, e or E science; no hex, no leading
+space; range -1e6..1e6. Runtime scales meters to nm. Out-of-range or
+hex fails lint.
+
+  - move:
+      node: 2
+      x_m: 7.0
+
+submit. Scope: concord-only. Mapping with node, image, and
+optional flags, as, count, id, rate. image is a shell-safe docker
+ref: alnum plus _ . : / @ + -, max 127 chars. flags is optional;
+charset is alnum plus _ = . , space / - %, max 127 chars, and may
+hold %host tokens (see Memory %host flags). as names the workload:
+charset [A-Za-z0-9_.-]+, max 63 chars, default submitted. count is
+optional, 1..100, and needs as: counted submits mint members
+BASE-0..BASE-N-1, and the base name must leave room for the
+suffix (base longer than 60 chars fails lint). rate is optional,
+1..1000000 msgs per sec; it paces counted submits with sleeps
+between issues and is accepted but unpaced on single submits.
+id is optional, non-empty, max 63 chars; the concord submit path
+cannot set IDs (the CLI mints UUIDs), so a submit with id ends
+the run as SUITE_SKIP with reason fixed ids unsupported, never
+faked. The second-submit rule is name based, not single flight
+(see Limits). Submitting on weld fails lint.
+
+  - submit:
+      node: 0
+      image: probe
+      flags: "a=b"
+
+Named workload submit:
+
+  - submit:
+      node: 0
+      image: probe
+      as: w0
+
+Counted paced submit (see bulk.yaml):
+
+  - submit:
+      node: 0
+      image: probe
+      as: bulk
+      count: 3
+      rate: 2
+
+stop. Scope: concord-only. Mapping with optional workload, default
+submitted; charset [A-Za-z0-9_.-]+. Stops every set member on its
+submit node and wants the Stopped line. A base name stops the
+whole counted set. Lint fails stop with no earlier submit.
+
+  - stop:
+      workload: submitted
+
+pub. Scope: weld-only. Mapping with from, text, and optional
+topic, rate. from is a node index. text is a non-empty string, max
+255 chars. topic is optional with topic shape, max 127 chars.
+Default topic is the file topic (explicit or derived). rate is
+optional, 1..1000000; it is parsed but currently unpaced, advisory
+only. Pub on concord fails lint.
+
+  - pub:
+      from: 0
+      text: weld-probe
+
+  - pub:
+      from: 1
+      text: hello
+      topic: /chatter_demo
+
+benchmark. Scope: weld or concord by key family. Meaning lives in
+docs/benchmark; shape lives here. Weld family needs from, on, plus
+text or payload_bytes; plus rate or ramp; plus count and/or
+duration_s; optional topic, warmup, echo. Concord family needs
+node, image, as; plus rate or ramp; plus count and/or duration_s;
+optional flags, warmup. Bounds: rate 1..1000000; weld count
+1..1000, concord 1..100 (each issue mints a workload); duration_s
+1..3600; without ramp, at least one of count or duration_s, and
+both means first bound wins; warmup default 0, below count when
+count is present; rate times duration_s stays under the family
+cap; payload_bytes 0..65536, 0 means text. ramp block takes
+start_rate, step_rate, step_duration_s, max_rate, max_steps 1..10,
+max_duration_s, plus loss_pct 0..100 and/or p99_ms 0..3600000, and
+forbids top rate, count, duration_s, warmup. from: ros:N needs
+ros.pub; echo: needs relay.echo. Bad pairs fail naming the
+missing verb. Loss plus overrun never fail the step.
+
+  - benchmark:
+      from: 0
+      text: bench-load
+      on: 1
+      rate: 5
+      count: 3
+      warmup: 1
+
+ros_pub. Scope: weld-only. Fires ROS pubs outside benchmarks; no
+stats emit. Mapping with from, topic, plus text or payload_bytes,
+plus rate, plus count and/or duration_s. from names weld or ros
+(both mean ROS publish on that node); concord fails, no pub verb.
+Needs ros.pub. Bounds match the weld benchmark family
+(payload_bytes 0..65536; rate 1..1000000; count 1..1000;
+duration_s 1..3600; rate times duration_s under 1000). Meaning:
+docs/benchmark.
+
+  - ros_pub:
+      from: 0
+      topic: /chatter
+      text: ros-fire
+      rate: 2
+      count: 3
+
+slow. Scope: both. Mapping with nodes plus secs. nodes is all or
+a non-empty index list. secs is 1..3600: deferred drain through
+TunQos slow_secs. Origin need: net.slow is concord-only; a weld
+file that declares it fails lint, but the step itself works on
+both.
+
+  - slow:
+      nodes: [1]
+      secs: 5
+
+update. Scope: concord-only. Mapping with image plus optional
+workload (default submitted). image uses image shape, max 127
+chars. The run shells workload update --image <img> <wid> on the
+submit node for every set member, as in check/concord_update.c.
+A base name updates the whole counted set. Origin need:
+workload.update. Update with no earlier submit fails lint.
+
+  - update:
+      workload: w0
+      image: probe:v2
+
+replay. Scope: weld-only. Mapping with file plus optional topic
+and from. file is a non-empty path string, max 191 chars. topic
+is optional with topic shape; default is the run topic. from is
+an optional node index, default 0. It publishes a text log, one
+payload per line, in order from that node. Empty lines are
+skipped; lone CR ends are stripped too. Lines cap at 1024 chars;
+longer lines fail the run loudly. Lint checks shape only; files
+may appear at run time, so an unreadable file fails the run
+loudly, never the lint. There is no rate key on replay.
+Concord rejects replay at lint: no equivalent verb exists.
+Origin need: weld.replay.
+
+  - replay:
+      file: ./msgs.txt
+      from: 0
+
+diskfill. Scope: concord-only. Mapping with node plus mb. mb is
+0..65536; 0 removes the filler. It calls concord_disk_fill
+exactly: fallocates node filler.bin to mb MB. ENOSPC is
+best-effort success. Origin need: disk.fill.
+
+  - diskfill:
+      node: 0
+      mb: 16
+
+diskreadonly. Scope: concord-only. Mapping with node plus state.
+state is on or off. It calls concord_disk_readonly exactly:
+chmod a-w (on) or u+w (off) over the node state tree, bounded by
+10 s. This is an approximation, not block-device RO: root
+bypasses it, and off fully reverses it. Origin need:
+disk.readonly.
+
+  - diskreadonly:
+      node: 0
+      state: on
+
+journalcorrupt. Scope: concord-only. Mapping with node. It calls
+concord_journal_corrupt exactly: truncates the node journal.jsonl
+then writes CORRUPT plus newline, 8 bytes total, so readers see
+invalid JSON on next scan. Origin need: journal.corrupt.
+
+  - journalcorrupt:
+      node: 0
+
+Conditions (until or sustain)
+
+Conditions read the system: log grep, workload lists, journal
+queries, or liveness counts. Each phase holds exactly one.
+On-selectors pick which nodes must show it. SUT scope differs per
+condition below: using a concord-only check on a weld file fails
+lint. Chain phases when you need AND.
+
+peers. Scope: concord-only. Oracle: full mesh verdict marker. Greps
+each target node log for peers count with and without space. Value
+is a count 1..100 and at most nodes. on is required, all or list,
+never any.
+
+  until:
+    peers: 2
+    on: all
+
+marker. Scope: both. Oracle: generic grep. Raw log substring in per-
+node logs; weld logs on weld, node logs on concord. Value is a non-
+empty string, max 255 chars. on is required, any, all, or list. any
+passes when any node shows the string. Use it for free substrings;
+use text or observed for shaped checks.
+
+  until:
+    marker: peer.seen
+    on: any
+
+present. Scope splits by form. Oracle: workload form reads concord
+workload lists; text form greps weld logs. Mapping with one of
+workload or text, never both, plus required on as all or list,
+never any. No key defaults to the submitted workload ref. workload
+form is concord-only: optional workload name, default submitted. A
+counted base name means the whole set: every member on every
+on-node. text form is weld-only: non-empty string, max 255 chars.
+Workload present polls lists every 2 s and wants the short id on
+every target. Text present wants the string in every target weld
+log.
+
+  until:
+    present:
+      workload: submitted
+      on: all
+
+  until:
+    present:
+      text: weld-a
+      on: [0]
+
+absent. Same keys and scope as present, negated, with the same
+optional workload default. A counted base name means the whole set.
+Value map is workload or text plus on all or list. Passes when no
+target shows it. Used with sustain to prove a split holds: nothing
+sent during the cut leaks across.
+
+  sustain:
+    absent:
+      workload: submitted
+      on: [1]
+
+  sustain:
+    absent:
+      text: weld-b
+      on: [0]
+
+observed. Scope: weld-only. Oracle: weld log plus ROS log where a
+peer runs. Mapping with on plus text. on is one scalar node index; a
+lone single item list counts as scalar. text is a non-empty string,
+max 255 chars. The weld log must hold the text; where a ROS peer
+runs beside that node, the ROS capture must hold it too. With no ROS
+peer on the node, the weld log alone decides. Use it for pub round
+trips.
+
+  until:
+    observed:
+      on: 0
+      text: weld-a
+
+assigned. Scope: concord-only. Oracle: global journal query.
+Mapping with optional workload, default submitted; extra keys fail
+lint. No on key. Passes when any journal shows a non-nil
+assignment for every set member. A counted base name means the
+whole set. Origin need: journal.assigned.
+
+  until:
+    assigned:
+      workload: submitted
+
+mesh_count. Scope: both. Oracle: CLI liveness, not log grep. On
+concord, CLI alive count on node 0; on weld, live children counted
+by kill probe without reaping. Value is an exact count 1..100 and at
+most nodes. No on key; extra keys fail lint. Passes on exact match.
+Use it for liveness; use peers for mesh verdicts.
+
+  until:
+    mesh_count: 2
+
+agree. Scope: concord-only. Oracle: journal AssignedNodeID
+unanimity. Mapping with optional workload, default submitted; no
+on key, extra keys fail lint. Holds when all nodes report the same
+non-nil AssignedNodeID for every set member. A counted base name
+means the whole set. Origin need: journal.agree. Journal reads
+follow the check/ grep shape (AssignedNodeID tail-1); unreadable
+journals read false, never error. See agree.yaml.
+
+  until:
+    agree:
+      workload: w0
+
+assigned_on. Scope: concord-only. Oracle: per-node journal
+AssignedNodeID. Mapping with optional workload (default submitted)
+plus required node 0..nodes-1. No on key. Holds when that node
+reports non-nil for every set member. Origin need:
+journal.assigned_on. Unreadable journals read false, never error.
+See agree.yaml.
+
+  until:
+    assigned_on:
+      workload: w0
+      node: 1
+
+epoch. Scope: concord-only. Oracle: per-node AssignmentEpoch.
+Mapping with optional workload (default submitted) plus required
+node 0..nodes-1 plus optional eq or gte. eq and gte are ints 0 or
+more, never both. With no compare it holds when any epoch reads
+back; eq holds on exact match, gte on at least. Every set member
+must satisfy it. Origin need: journal.epoch. Reads follow the
+check/ grep shape (AssignmentEpoch tail-1); unreadable journals
+read false, never error. See agree.yaml.
+
+  until:
+    epoch:
+      workload: w0
+      node: 0
+      gte: 1
+
+image. Scope: concord-only. Oracle: per-node journal Image.
+Mapping with optional workload (default submitted) plus required
+value plus required on as all or list, never any. value uses image
+shape, max 127 chars. Holds when every on-node journal reports
+that image for every set member. Origin need: journal.image.
+Reads follow the check/ grep shape (Image tail-1); unreadable
+journals read false, never error. See update.yaml.
+
+  until:
+    image:
+      workload: w0
+      value: probe:v2
+      on: all
+
+Two distinctions that past readers confused:
+
+peers versus mesh_count. peers is concord-only log grep for the mesh
+verdict marker on listed nodes. mesh_count is any-SUT CLI liveness
+with no on: concord node list count, or weld live child count. Mesh
+verdicts want peers; liveness wants mesh_count. Do not swap them: a
+live but unmeshed cluster passes mesh_count and fails peers.
+
+text versus marker versus observed. Text form of present or absent
+is weld-only content grep on listed nodes. marker is generic
+substring grep on either SUT with any, all, or list. observed is
+weld-only pub or sub round trip on one scalar node: weld log plus,
+where a ROS peer runs, the ROS log. Round trips want observed;
+content holds want text; free substrings want marker.
+
+Needs table
+
+Needs lists driver abilities the file requires. Lint checks each
+verb against the file SUT; unknown verbs fail lint. Runtime would
+skip unknown verbs it cannot know. Declare only what the file uses:
+extra needs narrow where the file can run for no reason, missing
+needs hide as skips. Known verbs:
+
+concord (21 verbs):
+
+  workload.submit
+  workload.list
+  workload.stop
+  workload.update
+  node.list
+  journal.assigned
+  journal.agree
+  journal.assigned_on
+  journal.epoch
+  journal.image
+  journal.corrupt
+  journal.has
+  disk.fill
+  disk.readonly
+  net.qos
+  net.slow
+  net.nomcast
+  spawn.plain
+  spawn.anchor
+  spawn.skew
+  spawn.bins
+
+weld (12 verbs):
+
+  weld.pub
+  weld.echo
+  weld.replay
+  ros.peer
+  ros.echo
+  ros.pub
+  relay.echo
+  restart.fresh
+  restart.preserve
+  spawn.bins
+  weld.log
+  ros.log
+
+Note: restart.fresh and restart.preserve are weld-only verbs now.
+Concord restart steps need no verb; declare the spawn or disk or
+journal verb the phase actually queries.
+
+Example:
+
+  needs:
+    - workload.submit
+    - spawn.plain
+
+Worked example: weld_roundtrip
+
+A four-phase weld file that proves delivery, proves the reverse
+path, proves a split holds, then proves reunion restores delivery.
+Read it when authoring your first file: it shows probe, reverse,
+split with sustain, and reunite in order. File is
+suite/examples/weld_roundtrip.yaml (nodes 2, domain 64, one ROS peer
+on node 0 with distro jazzy, file timeout 150 s). Topic is derived
+per run because no topic key is set.
+
+probe. Pub weld-probe from node 0, wait until node 1 shows observed.
+Proves basic delivery before faults. Gate: observed on 1. Fails on
+pub error or 20 s without the text in the node 1 weld log (and ROS
+log only where a peer runs; node 1 has none).
+
+up. Pub weld-a from node 1, wait until node 0 shows observed. Proves
+the reverse path. Gate: observed on 0, which also checks the ROS
+capture because node 0 runs a peer. Fails on pub error or 40 s
+without dual log match.
+
+split. Drop node 1, pub weld-b from node 1, sustain absent of weld-b
+on node 0 for 10 s. Proves the cut holds: nothing sent during the
+split leaks across. Gate: sustain absent text on 0. Fails at once if
+weld-b appears on node 0, or on heal or pub error.
+
+reunite. Heal node 1, pub weld-c from node 1, wait until node 0
+shows observed within 60 s. Proves reunion restores delivery. Fails
+on pub error or 60 s without the dual log match.
+
+Limits
+
+Small fixed rules keep files decidable and runs bounded. Break one
+and lint fails before anything runs, except the submit rule which
+also fails at runtime as a backstop. Read these before adding a
+second workload or a second check to a phase.
+
+Single condition. One per phase map; two keys fail lint. Chain
+phases for AND.
+
+Second-submit rule. Names open flights, not single flight. A bare
+submit (no as:) while any workload is open fails at lint and at run
+time; a second submit must carry a fresh as: name. Duplicate names
+fail lint and runtime. Counted bases register too: stops, updates,
+and workload conditions may name a base (whole set) or a member
+(BASE-N). Stop, update, or a workload condition with no earlier
+submit fails lint. At most 128 workload entries per file; more
+fails lint and runtime. Counts outside 1..100 fail lint loudly.
+
+Step verbs. drop, heal, kill, restart, move, submit, stop, pub,
+benchmark, ros_pub, slow, update, replay, diskfill, diskreadonly,
+journalcorrupt.
+Unknown step keys fail lint. Fault keys never appear on heal.
+replay is weld-only; diskfill, diskreadonly, and journalcorrupt
+are concord-only; update is concord-only; slow and the drop fault
+shape work on both. Conditions are the 11 listed above; unknown
+condition keys fail lint.
+
+No text bypass: pub topic defaults to the file topic; explicit
+per-pub topics must still pass topic shape. Replay has no rate
+key; its topic defaults to the run topic the same way.
+
+Timeout clamps. File and phase timeout_s are 1..3600; hold_s is
+0..3600. hold_s needs until and must not exceed its phase timeout_s.
+
+Duplicate phases rejected. Repeat names fail lint.
+
+Memory %host flags. flags stay free form, and --memory 60%host
+passes lint: lint only checks the charset (alnum plus _ = . ,
+space / - %). A token <int>%host resolves in the driver to
+MemAvailable times int over 100 in MB via /proc/meminfo, as in
+check/concord_preempt.c. <int> caps at 10000; larger fails as
+malformed. After %host must come end, space, or comma, else
+malformed. A bare or bad percent fails loudly in the driver and
+never reaches the shell.
+
+  - submit:
+      node: 0
+      image: probe
+      flags: "--memory 60%host"
+
+Skew usage. variant skew with node plus offset lints, and the run
+maps it to the concord skew spawn. offset is a non-empty string,
+max 63 chars; the skew.yaml example uses "300". anchor needs node
+and points configs at it; plain ignores node and offset. Weld must
+stay plain with no node or offset keys. See
+suite/examples/skew.yaml.
+
+  spawn:
+    variant: skew
+    node: 1
+    offset: "300"
+
+Rate and latency granularity. rate is advisory pacing, not a
+verdict. It sleeps 1e9/rate ns between issues of counted submits;
+single submits accept it and issue once. Pub rate is parsed but
+currently unpaced. Time to present is coarse: the run polls
+workload lists about once per 2 s, so present timing rounds up to
+that rhythm.
+
+Progress fractions. The executor prints sub-phase lines shaped as
+suite: frac <phase> <num> <den> with plain non-negative ints, num
+below or equal den, den above 0. Bad shapes stay silent; progress
+never fails the run. Sources are real events only: after each do
+step (done steps of total steps), on until node-set transitions at
+the 2 s query rhythm (nodes now meeting of nodes in scope), and
+about once per second on hold or sustain dwells (elapsed of hold_s
+or timeout_s). Global shapes with no node set (assigned, and
+unresolved workload reads) print nothing. Consumers ignore
+malformed frac lines, never fail.
+
+Timeline events. After every phase begin and done, every applied
+step, every first marker observation in a phase, every condition
+outcome, every metric, and every verdict, the run prints one
+flushed line:
+
+suite: ev {"t":MS,"k":K,"ph":I,"msg":TEXT,"d1":A,"d2":B}
+
+MS is ms since file start (post-lint, pre-setup anchor on the
+monotonic clock). K is one of phase, step, marker, metric,
+verdict, or cond. I is the phase index. TEXT is JSON-escaped at
+the single print site, so malformed output is impossible by
+construction. A and B are ints. Conventions: phase msg is begin
+NAME (A 0) then done NAME (A elapsed ms); step msg names the verb
+(A step index); marker msg is the marker text (A nodes matched);
+cond msg is the cond text (A 1 met, 0 unmet); metric msg is
+key=value text (A repeats the value when integral); verdict msg is
+pass NAME, fail WHY, or skip WHY (A 0, 1, 2). Lint emits no
+events. Older suite: prints stay byte-identical.
+
+Metric keys. phase.<i>.ms reports phase durations; maxrss.mb
+reports peak RSS via getrusage in MB. Both emit at each phase end.
+present.<name>.ms reports per-workload time to present (first
+sight minus submit); it emits at phase end when first seen.
+Same-ms reads 0 and is skipped, like bench sub-ms, so its
+absence reads as no data, not as zero latency.
+
+Benchmarks. docs/benchmark is canonical for what benchmarks
+mean (wire format, clocks, matching, endpoints, patterns, sizes,
+needs, metric keys). This file keeps key shapes plus lint bounds
+(see benchmark and ros_pub steps above); meaning lives there,
+shape lives here. Report views consume these suffix shapes: .lat
+for per-message latency, .hist.<b> for bucket counts, .rate_ach
+for achieved rate, plus .ms, .pkts, .bytes, .ok, .path for units
+and links. Unknown suffixes keep fallback graphs and checks.
+
+Declarative probes.
+
+Generic send plus expect blocks are canonical; old from,
+on, topic, text, node, image, as, flags, and payload
+keys are shorthand that desugar to the same entries.
+Backing: suite/exec.h:587-656 plus suite/exec.c:185-198.
+
+Registry. Eight primitives name one send or observe
+verb wired to the existing driver path. Relay stays
+out; it is transport, not observation. Backing:
+suite/exec.c:185-198 plus suite/exec.h:587-612.
+
+  weld-pub: send via weld_pub. Publishes one weld
+    payload on the node. Wants weld.pub.
+  ros-pub: send via ros_pub_once. Publishes
+    through the ROS peer on the node. Wants
+    ros.pub.
+  workload-submit: send via concord_submit.
+    Submits one workload under the as name.
+    Wants workload.submit.
+  log-contains: observe via weld log grep. Holds
+    when the weld log holds the full prefix.
+    Wants weld.log.
+  ros-log-contains: observe via ROS log grep.
+    Holds when the ROS capture holds the full
+    prefix. Wants ros.log.
+  journal-has: observe via journal field grep.
+    Holds when the node journal field equals
+    value. Wants journal.has.
+  workload-running: observe via
+    concord_list_has. Holds when every issue
+    lists as running. Wants workload.list.
+  prometheus-scrape: observe via curl in the
+    observe netns. Sums series by base metric
+    name, compares with op. Wants
+    metrics.scrape. Generic: no SUT prefix,
+    same shape for weld plus concord.
+
+Send block. A generic benchmark holds exactly
+these top keys: send, expect, rate, count,
+duration_s, warmup, echo, ramp. send plus
+expect are both required. Backing:
+suite/exec.c:2607-2634.
+
+  send:
+    node: required int 0..nodes-1. Issue node.
+    via: required send primitive: weld-pub,
+      ros-pub, or workload-submit.
+    topic: optional weld topic shape. Weld
+      family only; submit forbids it.
+    image: required on workload-submit only;
+      forbidden on weld family. Shell-safe
+      docker ref.
+    flags: optional on workload-submit only;
+      forbidden on weld family.
+    as: required base name on workload-submit
+      only; forbidden on weld family.
+    body: user text on weld family. Needs body
+      or payload_bytes.
+    payload: optional template on weld family;
+      forbidden on submit. May hold
+      placeholders.
+    payload_bytes: optional 0..65536 on weld
+      family; forbidden on submit. Set body
+      is N x fill; 0 or absent means use text.
+
+Expect block. Backing: suite/exec.c:2653-2673
+plus suite/exec.c:3132-3262.
+
+  expect:
+    node: required int 0..nodes-1. Observe
+      node.
+    via: required observe primitive:
+      log-contains, ros-log-contains,
+      journal-has, workload-running, or
+      prometheus-scrape.
+    match: required. Scalar prefix template
+      for log contains; scalar running for
+      workload-running; mapping for
+      journal-has and prometheus-scrape.
+
+Journal match map holds exactly field plus
+value. Backing: suite/exec.c:3139-3166.
+
+    match:
+      field: AssignedNodeID,
+        AssignmentEpoch, or Image.
+      value: template that may hold
+        placeholders.
+
+Scrape match map holds metric plus op plus
+value plus port plus path. Metric is the base
+name, labels sum; op is eq, ne, lt, le, gt,
+or ge; value is numeric; port is required
+1..65535; path defaults to /metrics. Scrape
+gates log stats: threshold miss reads as 100
+percent loss. Backing: suite/exec.c scrape
+helpers plus scrape_gate.
+
+Echo keeps its shape inside generic blocks:
+echo: {by, node}. by is weld, ros, or
+concord; node is an endpoint. Backing:
+suite/exec.c:3511-3532 plus
+suite/exec.h:193-206.
+
+Placeholders. Templates hold {{seq}},
+{{send_ns}}, {{body}}, {{wid}}. Backing:
+suite/exec.c:1178-1250, suite/exec.c:8863-8960,
+plus suite/exec.h:630-642.
+
+Seq is the zero based per-step index.
+Send_ns is sender monotonic ns stamped per
+issue; clock zero reads as loss. Body is
+user text or N x fill when payload_bytes is
+set. Wid is the submitted workload id,
+workload-submit send only. Unknown names fail
+lint naming the allowed list. Wid outside
+submit fails loudly.
+
+Match rule. Log plus ROS logs match the full
+payload prefix, never content. The observed
+path rebuilds the exact full payload (tag
+plus body) and greps for that whole string,
+so user text holding tag-like text cannot
+confuse it. Old two-field tags fail loudly,
+never misparse. Journal match is a field plus
+value map; list match is the state running.
+Backing: suite/exec.h:131-148,
+suite/exec.h:643-648, suite/exec.c:1107-1148,
+plus suite/exec.c:8962-8971.
+
+Desugar. Old sugar keys name the same
+entries. Backing: suite/exec.h:613-629.
+
+  from N or weld:N plus text or payload_bytes
+    means send weld-pub.
+  from ros:N means send ros-pub.
+  node plus image plus as plus flags means
+    send workload-submit.
+  on N or weld:N means expect log-contains.
+  on ros:N means expect ros-log-contains.
+  concord list reads mean expect
+    workload-running.
+  journal reads mean expect journal-has.
+  pub, ros_pub, submit, observed, plus
+    present or absent map the same way.
+
+Old keys keep working; new send plus expect
+blocks name the entries directly.
+
+Pairing. Any generic via pair lints clean,
+even nonsense. A nonsense pair (weld-family
+send with concord-family expect, or reverse)
+measures 100 percent loss honestly through
+the same stats, never a lint error. Old
+sugar keeps its loud pair failures so old
+files lint identically. Backing:
+suite/exec.h:649-656, suite/exec.c:2588-2598,
+plus suite/exec.c:9238-9263.
+
+Needs. Each primitive wants one verb.
+Backing: suite/exec.c:185-198,
+suite/exec.h:602-612, plus
+suite/exec.c:7165-7202.
+
+  weld-pub wants weld.pub.
+  ros-pub wants ros.pub.
+  workload-submit wants workload.submit.
+  log-contains wants weld.log.
+  ros-log-contains wants ros.log.
+  journal-has wants journal.has.
+  workload-running wants workload.list.
+
+Old needs keep meaning; new verbs only add
+names. Declare only what the file uses.
+
+Code map
+
+Top keys with count, scalar, SUT, and range checks, now 13 keys
+with bins plus disk_cap_mb; phase keys with until/sustain exclusivity, hold rules,
+and multicast; step verbs with node-set, signal, durability, float,
+image, flags, workload name, count, id, rate, file, topic, mb,
+state, and scope checks; conditions with arity and SUT checks;
+needs table with unknown-verb
+and submit-order checks; durability and spawn variant maps; topic
+default with sequence; ROS peer checks and spawn paths; oracle
+queries for peers, text, observed, journal, and liveness; file and
+phase timeout fail paths; duplicate and multi-submit reject paths.
+Oracle table also stated in the suite header.

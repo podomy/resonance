@@ -7,6 +7,10 @@ typedef struct {
     uint64_t s[4];
 } Rng;
 
+// State is four 64-bit lanes.
+static_assert(sizeof((Rng){}.s) == 4 *
+    sizeof(uint64_t));
+
 // Seeds xoshiro256** via splitmix64.
 void rng_seed(Rng* rng, uint64_t seed);
 

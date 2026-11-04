@@ -11,13 +11,14 @@ all look the same here: IPv4 packets to forward or drop.
 
 The setup sequence
 
-Every check/ scenario runs the same preamble, in this order
-(see check/concord_two.c:39-54 for the check/-only reference
-shape):
+Every scenario runs the same preamble, in this order
+(see check/concord_two.c:39-54 for the frozen Concord
+reference shape; weld scenarios use the same calls with
+different binaries):
 
 1. context_init(&ctx, 32, 1). Build the Layer 0 core. The arguments
    (heap room for 32 events, seed 1) are identical in the check/
-   Concord scenarios.
+   scenarios (Concord examples show the shape).
 2. sim_netns_setup(n). Create one network namespace per extra node.
    Node 0 stays in the host namespace so there is always a reference
    point.
@@ -55,8 +56,9 @@ tun_pump_fd in tun/tun.c does the whole job for one packet:
 
 tun_pump_fd_nomcast is the same function with multicast dropped
 instead of broadcast. Only check/concord_anchor.c:34 uses it, to
-prove discovery works through configured anchors while mDNS is blind.
-That reference is check/-only.
+prove Concord discovery works through configured anchors while
+mDNS is blind. That reference is check/-only. Weld discovery
+uses the same pump with DDS plus mDNS.
 
 Proof without any binary
 
@@ -82,18 +84,18 @@ historic names with node 0 in the host namespace. That is the
 check/-only default, kept frozen.
 
 New code uses the _net variants with an explicit SimNet
-(sim/sim.h:94-153). The isolated path puts every node, including
+(sim/sim.h:94-157). The isolated path puts every node, including
 node 0, in its own namespace: sim_netns_setup_all
-(sim/sim.h:98-104), sim_tuns_open_all (sim/sim.h:127-135), and
-sim_addrs_up_all (sim/sim.h:148-153). The suite executor always
-takes this path (suite/exec.c:3912 sets isolate_all = 1), so live
+(sim/sim.h:98-105), sim_tuns_open_all (sim/sim.h:133-141), and
+sim_addrs_up_all (sim/sim.h:153-159). The suite executor always
+takes this path (suite/exec.c:8029 sets isolate_all = 1), so live
 runs share nothing except the allocator file.
 
 sim_run_acquire (sim/sim.h:92) hands out run ids 1..154 through
 a file lock, and sim_net_try_for_run (sim/sim.h:70) maps an id
 to disjoint names. Run 0 is the historic default.
 
-One limit remains, stated in sim/sim.c:310-323. A run that keeps
+One limit remains, stated in sim/sim.c:357-371. A run that keeps
 node 0 in the host namespace claims the host 224.0.0.0/4 route and
 binds port 7946 on node 0. Two such runs cannot run at the same
 time. Parallel runs use the isolated path, where each run owns its

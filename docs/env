@@ -1,0 +1,168 @@
+Environment variables: set, read, ignored
+
+A few variables steer debug output, test clocks, progress drawing,
+child identity, and radio peers. Each entry below says what the
+variable does when you need it, and what goes wrong when you get it
+wrong. Exact shapes and edge rules follow the plain meaning. Every
+site below was read in full before writing.
+
+When to set what
+
+IMG_DEBUG - extra image detail after a failure. Scope: whole
+run, set it yourself per run.
+
+CONCORD_CLOCK_OFFSET - skew one node clock in a test. Scope:
+one spawned child only, never production.
+
+NO_COLOR or TERM - plain scrollable output. Scope: your shell.
+
+ROS_DOMAIN_ID - point weld children at a DDS domain. Scope:
+forked weld children only.
+
+XDG_CONFIG_HOME - isolate node identity per run. Scope:
+forked children or one-shot shell prefix.
+
+IMG_DEBUG
+
+Extra image debug output for post-mortems. Leave it unset for normal
+runs, which stay quiet. Set it when an image push or manifest step
+failed and you need the response code, body, and headers.
+(Concord image registries today; the helper itself is
+registry-generic). Any value
+enables it, even empty: presence is the switch. If you export it
+globally you will drown normal output in debug lines, so set it for
+one run only.
+
+Shape: presence check only. Any value, even empty, enables it.
+Absent means quiet. Effect when set: failed steps print [img] <step>
+failed, and manifest retries print response code plus body plus
+headers. Set it to 1 for the whole run when you need
+full detail. Scenarios stay quiet by default; probes set
+it for post-mortems.
+
+CONCORD_CLOCK_OFFSET
+
+Concord-only test time hook. It skews one Concord node into the
+future or past so the harness can prove the system handles
+clock drift. The Concord binary reads it; the harness sets it
+for the skewed node only. This variable means nothing to other
+binaries: weld and ROS peers ignore it. Never set it
+in production: a binary on fast or skewed timers is a different
+system than production, so timing verdicts from skewed runs do not
+transfer. Mechanism tests stay valid on fast clocks; timing verdicts
+do not. Mark fast runs logic-only. If you set this by hand on every
+node, you have not tested skew, you have only moved the wall clock.
+
+Shape: offset seconds as text, for example "300". The spawn path
+sets it in the child before exec, only when the caller passed a non-
+null offset. The skew spawn form runs the named skew node with the
+offset; all other nodes get true time (null means no setenv). The
+call returns false when the skew node is out of range or the offset
+is null.
+
+NO_COLOR
+
+Turn off color and cursor codes in the rsuite progress view when you
+log output, pipe it, or use a terminal that mangles escapes. Set it
+to any value, even empty, to disable. Unset means color when the
+terminal allows. If output looks garbled with escape litter, set
+this and rerun rather than parsing around the codes.
+
+Shape: any value, even empty, disables. Set means no ANSI colors and
+no cursor or erase codes at all; rows scroll as plain text. See TERM
+next.
+
+TERM
+
+Terminal type for progress output. You normally never set this by
+hand; your terminal already sets it. A value of dumb means the
+terminal cannot draw, so rsuite scrolls plain rows like NO_COLOR
+does. An unset TERM means not dumb. Any other value means not dumb.
+If colors vanish on a smart terminal, check NO_COLOR first: any set
+value also disables, even on a smart term.
+
+Shape: exact string dumb means dumb; unset means not dumb; any other
+value means not dumb. Effect: dumb disables all escape sequences
+plus color, like NO_COLOR. Colors in the CLI summary and failure
+lines follow the same rule, so they obey it too.
+
+ROS_DOMAIN_ID
+
+DDS domain for weld echo and pub children so parallel runs and
+neighbors do not hear each other. The weld driver sets it in each
+forked child before exec; you never export it yourself for runs. The
+same value also passes as --domain on the weld command line. If two
+runs share a domain on one host, their chatter leaks across runs and
+observed checks flap. If peers never meet, check that both sides
+share the intended domain.
+
+Shape: plain int text such as "7". The value is built with decimal
+formatting. Shell form: ROS peer setup builds ROS_DOMAIN_ID plus
+RMW, AMENT, library, and PATH prefixes for sourcing the ROS install
+before running peers. Scope: child env only; the parent never
+exports it.
+
+XDG_CONFIG_HOME
+
+Per-node config home so real binaries do not share identity.
+Each forked child gets its own node directory under the run
+statedir, where the driver seeds that system's identity
+material (Concord seeds CA certs plus member config; weld
+uses its own node home the same way). Without this
+isolation, nodes would share keys and state and the test would prove
+nothing about a real cluster. Set it per child or as a one-shot
+shell prefix, never globally: a global export points every node at
+one identity.
+
+Shape: the node dir (net statedir plus node name). Drivers seed
+per-system identity under it. Shell form: CLI helpers prefix
+commands with XDG_CONFIG_HOME plus the dir, for example the node
+rotate-key helper, workload stop, and the suite stop path. Scope:
+child env or one-shot shell prefix; the parent keeps its own env.
+Some check files set it the same way for legacy spawn paths;
+check files are frozen and keep copies.
+
+Negative list: read but not used
+
+These names look meaningful but change nothing. Do not chase them
+when debugging. Setting them wastes time and hides the real knob,
+which lives in the workflow steps, the Makefile, or a fixed path
+below.
+
+TMPDIR is ignored. No getter for it exists in the repo. Paths are
+fixed: STATEDIR is /var/tmp/resonance, rsuite logs default to
+/var/tmp/resonance-rsuite-XXXXXX via mkdtemp, run lock plus counter
+live at /var/tmp/resonance-runs.lock and its counter sibling
+/var/tmp/resonance-runs.counter, and doctor probes /var/tmp.
+Setting TMPDIR changes nothing. Note: /tmp appears only in a header
+comment warning that the /tmp tmpfs is nodev and cannot hold device
+nodes.
+
+CI is ignored. No getter for it exists in C sources, the Makefile,
+or the workflow file. CI behavior comes from the workflow steps, not
+from env detection.
+
+/tmp/opencode probe path
+
+Fixed scratch path for the C23 compiler probe, not a setting. Wipe
+it any time; the standard target recreates it. If the probe fails,
+fix the compiler, not this path.
+
+make standard uses /tmp/opencode for its C23 probe. The recipe runs
+mkdir -p /tmp/opencode then pipes a small version-gate program into
+the compiler with -std=c23 to build /tmp/opencode/c23_probe. It is a
+fixed path, not env driven.
+
+Code map
+
+IMG_DEBUG reads: image fail path and manifest retry loop;
+set it per run when debugging. CONCORD_CLOCK_OFFSET set
+site: sim spawn path (Concord only); skew spawn form and
+header skew notes.
+NO_COLOR and TERM reads: progress
+no-escape and color helpers. ROS_DOMAIN_ID set sites: weld echo and
+pub spawns, plus ROS peer shell prefix. XDG_CONFIG_HOME set sites:
+sim, weld, and concord spawn paths, CLI helper prefixes, suite
+stop path.
+Fixed paths: statedir and run lock plus counter in sim sources,
+rsuite log dir in the CLI, probe path in the standard rule.

@@ -1,0 +1,52 @@
+# bench-ramp: stepped ladder as phases.
+# Manual pattern, distinct from the
+# adaptive ramp: block (see
+# bench_ramp_adaptive.yaml). One
+# benchmark per phase at rising rate
+# (here 5, 10, 20/sec); chain phases
+# to sweep rates without adaptation.
+# Unrunnable here: needs weld plus
+# TUN, lint proves shape only.
+name: bench-ramp
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 120
+phases:
+  - name: slow
+    do:
+      - benchmark:
+          from: 0
+          text: ramp-load
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: mid
+    do:
+      - benchmark:
+          from: 0
+          text: ramp-load
+          on: 1
+          rate: 10
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: fast
+    do:
+      - benchmark:
+          from: 0
+          text: ramp-load
+          on: 1
+          rate: 20
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

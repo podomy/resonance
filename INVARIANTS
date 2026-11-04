@@ -1,5 +1,7 @@
 Invariants
 
+Scope: frozen Concord reference matrix, not universal properties.
+
 Each scenario in check/ names the Concord behavior it
 pins down. The behavior is stated as an invariant: a
 property that must hold no matter how the fault lands.

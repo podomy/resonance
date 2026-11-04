@@ -1,0 +1,222 @@
+On-disk layout: where runs leave files
+
+Every run writes to known paths only. This file lists each path,
+what it holds, who makes it, and who removes it. Read it before
+cleaning by hand: deleting the wrong path loses forensics or
+collides with a live run, while deleting the right stale path
+unblocks the next run. The CLI lives at cmd/main.c.
+
+Layout list
+
+There is one entry per path. Creator means the code that
+makes it. Cleaner means what removes it, or manual-only when
+nothing does. Statedir means the per-run state directory.
+Cgroot means the per-run cgroup root. Rid means run id. Each
+entry below names a path, what it holds, who makes it, and
+who removes it.
+
+/var/tmp/resonance - default statedir, per-node homes when
+rid is 0. Made by sim spawn mkdir 0700 via parent-net and key
+setup. Removed by run teardown rm -rf statedir after net
+revalid.
+
+/var/tmp/resonance plus rid suffix - per-run statedir for
+rid 1..154, suffix keeps runs apart. Made by allocator suffix
+plus tun base plus octet. Removed by same rm -rf with
+per-run statedir.
+
+statedir/node plus index - per-node home, holds concord or
+weld state for node i. Made by spawn mkdir 0700. Removed by
+statedir wipe; restart path removes one dir.
+
+statedir/gossip.key - 32 byte shared gossip key, one per
+cluster. Made by key setup from urandom plus chmod 600.
+Removed by statedir wipe.
+
+statedir/node plus index/concord/config.json - per-node
+concord config with id plus memberlist and advertise addrs.
+Made by spawn shell printf plus uuid. Removed by statedir
+wipe; forensics copies aside first.
+
+statedir/node plus index/concord/journal.jsonl - per-node
+append-only journal, concord writes it, harness greps it.
+Made by concord binary at runtime. Removed by statedir wipe;
+forensics copies to fail dir before wipe.
+
+statedir/node plus index/concord/bbolt.db - per-node kv
+store beside journal. Made by concord binary at runtime.
+Removed by statedir wipe; wipe-state restart removes journal
+plus store.
+
+statedir/node plus index/concord/certs/ - seeded CA certs
+ca.crt plus ca.key. Made by spawn copy from repo certs.
+Removed by statedir wipe.
+
+statedir/node plus index/concord/memberservice/secret.key -
+per-node copy of gossip key, concord needs same key on all
+nodes. Made by spawn copy plus chmod 600. Removed by
+statedir wipe.
+
+img/rootfs plus probe plus probe-check - local test image
+root plus static bins built offline. Made by make img-build
+mkdir plus go build. Removed by manual only; make clean
+keeps it.
+
+cgroup root/node plus index/daemon where root is the per-run
+root - per-node cgroup leaf for daemon plus containers. Made
+by cgroup place step mkdir root plus node plus daemon plus
+control. Removed by teardown rmdir node plus root, empty
+only.
+
+cgroup root/node plus index - per-node parent, stays empty
+for containers. Made by same place step. Removed by same
+rmdir step.
+
+cgroup root - per-run cgroup root, default path without
+suffix. Made by same place step. Removed by same rmdir step.
+
+/var/tmp/resonance-runs.lock - allocator lock guarding
+counter with flock. Made by acquire open create 0600 plus
+flock exclusive. No clean needed; flock frees on close or
+crash so stale locks are impossible.
+
+/var/tmp/resonance-runs.counter - last handed run id as
+decimal text. Made by acquire temp plus rename at 0600 plus
+fsyncs. Removed by manual wipe to reset monotonic ids; full
+at 154 fails loudly.
+
+/var/tmp/resonance-runs.counter.tmp plus pid - allocator
+publish temp per writer. Made by same acquire step. Removed
+by auto sweep under lock plus unlink on all error paths.
+
+/var/tmp/resonance-rsuite-XXXXXX - per-run rsuite log dir
+from mkdtemp, one per bin/rsuite run call. Made by log dir
+maker via mkdtemp. Persists by design, manual rm -rf; none
+removes it automatically.
+
+run dir/base.log plus base-N.log - per-file logs, base is
+file basename, clash suffix on clash up to 100 tries. Made
+by log open exclusive plus join. Persists by same rule; none
+removes them automatically.
+
+statedir-fail/suite plus seconds - forensics aside dir
+beside statedir, keeps logs plus journals past wipe. Made by
+forensics mkdir plus copy. Removed by manual only; statedir
+wipe does not cover it.
+
+/tmp/resonance-img plus pid plus name for hdrs, body, hdump,
+code - per-process curl scratch. Made by temp path with pid.
+Removed by manual rm -f; no auto unlink in img path.
+
+/tmp per-push layer plus config plus manifest - per-push
+image layer plus config plus manifest. Made by push snprintf
+plus tar plus writes. Removed by manual rm -f.
+
+statedir/node number log - per-node concord log saved from
+pipe chunks. Made by poll log append. Removed by forensics
+tails then wipe.
+
+statedir/weld number log - per-node weld log, same role on
+weld runs. Made by weld log save append. Removed by same
+tail then wipe.
+
+statedir/ros number log - per-node ROS capture where a peer
+runs. Made by weld ROS peer start capture in per-run
+statedir. Removed by same tail then wipe.
+
+Per-node versus per-file logs
+
+Two log sets serve two readers. Per-node logs live under the run
+statedir and serve the verdict: peers grep, marker grep, observed
+checks, and tail forensics read them. Names split by SUT: node logs
+on concord, weld logs plus ros logs where a peer runs on weld.
+Per-file logs live under the rsuite run dir and serve the operator:
+one file per YAML input, named for the input basename with a numeric
+suffix on clash. They hold the child stdout plus stderr bytes plus
+suite phase and frac lines. Statedir wipes delete per- node logs
+after forensics. Nothing deletes per-file logs. If you look for a
+verdict in the per-file log or for operator context in a wiped
+statedir, you will look in the wrong place.
+
+Caps and charset
+
+Fixed buffers cap names. Long names fail instead of truncating and
+touching the wrong path. If a run refuses a long statedir or odd
+character, shorten and sanitize rather than forcing it: the refusal
+guards rm -rf and device paths.
+
+statedir holds 128 bytes and cgroot holds 128 bytes. Suite copies
+use dir length 128 and path length 192. statedir, ns prefix, tun
+prefix, and cgroot allow only letters, digits, plus slash,
+underscore, dot, hyphen; all reach system so other bytes refuse.
+Every tun name must fit the interface name cap minus one and base
+must not be negative. Underlay must be a sane unicast /24 clear of
+loopback, multicast, and the 10.0.0.0/16 overlay. Truncated rm -rf
+and rmdir commands refuse to run.
+
+Run id mapping
+
+Small ints map to disjoint names, addrs, and devices. The allocator
+hands them out. Use the mapping to tell runs apart when two runs
+share a host. If you reuse an id by hand you will alias TUN names or
+octets and the runs will fight.
+
+Range is 1..154 from the allocator. Run 0 is the historic default
+with no suffix. For rid above 0: statedir gains a rid suffix, ns
+prefix gains the rid, tun base is rid times the per run map max,
+third octet is 100 plus rid with base 100, cgroot gains a rid
+suffix. Max 100 plus 154 is 254 so the octet stays valid, and the
+worst tun index stays five digits. Ids are monotonic with no reuse;
+wipe the counter file to reset after runs end. Missing or empty
+counter reads as 0; over-long or garbage rejects as corrupt; I/O
+error fails instead of handing id 1; max long cannot overflow by
+range check before bump; publish is temp plus rename at 0600 with
+tmp fsync plus best-effort fsync of the parent dir; full at 154
+prints run ids exhausted and fails.
+
+Host versus isolated footprint
+
+Old runs touch the host. New runs touch nothing on the host except
+the allocator file. Run isolated or serial: two host runs cannot run
+together because both claim the host route and both bind the same
+memberlist port. If the second of two parallel runs flaps, check
+this first.
+
+Host path keeps node 0 in the host netns for check parity and
+single-run debug. Isolated path puts each node in its own netns with
+every TUN inside its netns, no host tun, no host addr, no host
+multicast route. Memberlist binds all interfaces port 7946 with
+advertise and anchor addrs at under octet port 7946. Isolated runs
+with distinct nets share only the allocator file. Executor always
+selects isolated. Pairing is strict: host setup needs isolate flag 0
+and isolated needs nonzero, else a loud run failure with no side
+effects.
+
+Dev-capable statedir
+
+State must live where devices work. STATEDIR must sit on a
+dev-capable filesystem because container device nodes are made in
+bundles below it, and a nodev mount such as /tmp tmpfs refuses every
+device open. Put statedir on /var/tmp, not /tmp, or every spawn
+fails. This is a documented header requirement; no runtime probe for
+it was found.
+
+Cgroup leaves
+
+Cleanup removes only empty dirs. Teardown runs rmdir on each node
+dir then on the root itself with stderr nulled. Rmdir removes empty
+dirs only, so strays fail silently there by design. Truncated names
+never run and still return true. Do not use rm -rf on cgroupfs:
+rmdir is the guard.
+
+Code map
+
+Default statedir and per-run suffix, tun base, octet, cgroot, and
+allocator lock plus counter paths; name checks, tun size checks, and
+underlay checks; spawn mkdir, key, cert, gossip, and config steps;
+restart wipe; cgroup place and teardown; counter acquire, read,
+corrupt, overflow, publish, sweep, and exhausted paths; rsuite log
+dir, join, open, and persist rule; forensics mkdir, copy, tail, and
+aside dir; img scratch and push paths; per-node log save and weld
+log paths; host versus isolated setup and pairing checks; dev-
+capable header note.

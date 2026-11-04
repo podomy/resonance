@@ -12,33 +12,35 @@ Channel 1: child log pipes
 Every spawned binary has its stdout and stderr redirected into a
 pipe. The check/ scenario reads chunks and searches for marker
 strings. The YAML executor saves the same chunks to per-node log
-files and greps the files. The two markers that carry nearly every
-mesh verdict:
+files and greps the files. The two Concord markers that carry
+nearly every mesh verdict (weld checks weld plus ROS logs
+instead):
 
 - "peers":N (sometimes with a space, "peers": N; scenarios check
   both). Means this node currently sees a full mesh.
 - peer.seen / peer.lost. Means a peer arrived or vanished.
 
-Specialist markers appear where the property needs them: pin
-mismatch and peer key rotated in the key scenarios
+Concord specialist markers appear where the property needs them:
+pin mismatch and peer key rotated in the key scenarios
 (check/concord_pinalarm.c, check/concord_rotate.c), peer sync ok
 plus a peer address in check/concord_killmidsync.c:178-180 (kill
 exactly while syncing). On failure, check/ scenarios dump recent
 error lines before cleaning up (grep '"level":"error"' ... | tail),
 so the log that decided the run is visible. The suite executor runs
-forensics through RunForensics (run/run.h:46) before the statedir
+forensics through RunForensics (run/run.h:89-91) before the statedir
 wipe instead. Two check/ scenarios (img, stop) also tee child
 output to files under STATEDIR for post-mortem; the rest read pipes
 only.
 
 Channel 2: files on disk
 
-Each node's home holds a journal (journal.jsonl), a config
-(config.json), and stores. Check/ scenarios read them with shell
-greps (they never write, except the key and journal surgery listed
+Each Concord node's home holds a journal (journal.jsonl), a config
+(config.json), and stores (weld echo nodes hold no state, so no
+journal). Concord check/ scenarios read them with shell greps
+(they never write, except the key and journal surgery listed
 below). The suite executor submits through concord_submit and reads
 through concord_list_has, concord_assigned_anywhere, and
-concord_mesh_count (driver/concord.h:71-123):
+concord_mesh_count (driver/concord.h:146-157):
 
 - AssignedNodeID per workload id: who is scheduled where. The
   assigned_anywhere helper (non-nil id in any journal) gates most
@@ -51,8 +53,8 @@ concord_mesh_count (driver/concord.h:71-123):
   used to elect victims and leaders (lowest UUID) and to find owners.
   The executor uses the same mapping for kill plus restart
   targets.
-- workload.instance.running: the image supply chain's end state.
-  Only check/concord_img reads it.
+- workload.instance.running: the Concord image supply chain end
+  state. Only check/concord_img reads it.
 
 The only writes to node state are the durability tests themselves:
 deleting the Noise secret key (pinalarm), deleting journal plus kv
@@ -61,8 +63,9 @@ rotate). Everything else is read-only.
 
 Channel 3: CLI verbs
 
-Check/ scenarios drive the system the way an operator does, with the
-config home pointed at one node. The suite executor calls the same
+Concord check/ scenarios drive Concord the way an operator does,
+with the config home pointed at one node. The suite executor calls
+the same
 verbs through driver/concord.h (concord_submit to submit,
 concord_list_has and concord_mesh_count to read) and driver/weld.h
 (weld_pub to send):
@@ -100,7 +103,7 @@ documented at the top of img/img.h.
 
 The docker ROS-peer control path is the second sanctioned bypass
 under the same policy. weld_ros_peer_start
-(driver/weld.h:138-154) runs docker exec on the host against the
+(driver/weld.h:141-160) runs docker exec on the host against the
 weld-distro container, with capture landing in the per-run
 statedir so parallel runs stay apart. That control path never enters
 a scenario netns and never crosses the simulated radio. Only weld

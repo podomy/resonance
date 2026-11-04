@@ -1,0 +1,41 @@
+# bench-generic-r2r: explicit generic
+# ros to ros pairing. Send names
+# ros-pub on node 0 peer, expect names
+# ros-log-contains on node 1 peer.
+# Needs ros.pub for the ROS send plus
+# ros.peer for the beside captures.
+# Canonical template keeps wire bytes
+# identical to the sugar ros form.
+name: bench-generic-r2r
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+needs:
+  - ros.pub
+  - ros.peer
+timeout_s: 60
+ros_peers:
+  - node: 0
+    distro: jazzy
+  - node: 1
+    distro: jazzy
+phases:
+  - name: load
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: ros-pub
+            body: ros-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: ros-log-contains
+            match: ros-load
+          rate: 2
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

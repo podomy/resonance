@@ -1,0 +1,44 @@
+# bench-ramp-adaptive: adaptive
+# ceiling ramp proof. One benchmark
+# runs the ladder itself: start 5,
+# plus 5 per step, each step 2 s,
+# stop on loss over 5 pct or p99
+# over 100 ms, plus hard backstops
+# max 20, 4 steps, 30 s total.
+# Per-step metrics ride
+# bench.<ph>.<k>.ramp.<i>.* with
+# the same leaves as bench stats
+# (no lat/hist, bounded logs);
+# final ceiling.rate is numeric
+# plus ceiling.limited_by as a
+# marker event. Bounds prove end:
+# steps, time and rate all grow
+# monotonic, see exec.c. No ramp
+# mode, ramp: block only, see
+# exec.h. Unrunnable here: needs
+# weld plus TUN, lint only.
+name: bench-ramp-adaptive
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 120
+phases:
+  - name: ramp
+    do:
+      - benchmark:
+          from: 0
+          text: ramp-load
+          on: 1
+          ramp:
+            start_rate: 5
+            step_rate: 5
+            step_duration_s: 2
+            max_rate: 20
+            max_steps: 4
+            max_duration_s: 30
+            loss_pct: 5
+            p99_ms: 100
+    until:
+      mesh_count: 2
+    timeout_s: 60

@@ -1,2 +1,4 @@
+CompileFlags:
+  Add: [-std=c23, -I.]
 Diagnostics:
   UnusedIncludes: None

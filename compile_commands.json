@@ -1,37 +1,357 @@
 [
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "main.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c main.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/cable.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "heap/heap.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c heap/heap.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "sim/sim.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "rng/rng.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c rng/rng.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "tun/tun.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "shared/context.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c shared/context.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "math/math.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "node/node.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c node/node.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "world/world.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "world/world.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c world/world.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "node/node.c"
   },
   {
     "directory": "/home/neil/Documents/resonance",
-    "file": "udp/udp.c",
-    "command": "cc -std=c11 -Wall -Wextra -Werror -O2 -c udp/udp.c"
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "shared/context.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "heap/heap.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/cable check/cable.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "rng/rng.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_anchor check/concord_anchor.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_anchor.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_bulk check/concord_bulk.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_bulk.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_catchup check/concord_catchup.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_catchup.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_cursor_resume check/concord_cursor_resume.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_cursor_resume.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_divergent check/concord_divergent.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_divergent.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_duel check/concord_duel.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_duel.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_failover check/concord_failover.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_failover.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_flap check/concord_flap.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_flap.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_img check/concord_img.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c img/img.c",
+    "file": "check/concord_img.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_img check/concord_img.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c img/img.c",
+    "file": "img/img.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_killisolated check/concord_killisolated.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_killisolated.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_killmidsync check/concord_killmidsync.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_killmidsync.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_minority_stop check/concord_minority_stop.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_minority_stop.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_mobile check/concord_mobile.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_mobile.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_nomem check/concord_nomem.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_nomem.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_orphan check/concord_orphan.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_orphan.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_orphan_partition check/concord_orphan_partition.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_orphan_partition.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_orphan_stop check/concord_orphan_stop.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_orphan_stop.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_partition check/concord_partition.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_partition.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_pinalarm check/concord_pinalarm.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_pinalarm.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_preempt check/concord_preempt.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_preempt.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_reinstall check/concord_reinstall.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_reinstall.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_restart check/concord_restart.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_restart.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_rotate check/concord_rotate.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_rotate.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_scale check/concord_scale.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_scale.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_scale_churn check/concord_scale_churn.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_scale_churn.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_slow check/concord_slow.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_slow.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_spam check/concord_spam.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_spam.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_splitbrain check/concord_splitbrain.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_splitbrain.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_stop check/concord_stop.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_stop.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_three check/concord_three.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_three.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_two check/concord_two.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_two.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_update check/concord_update.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_update.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/concord_workload check/concord_workload.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/concord_workload.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/determinism check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c",
+    "file": "check/determinism.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/determinism check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c",
+    "file": "udp/udp.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/driver_concord_test suite/driver_concord_test.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c",
+    "file": "suite/driver_concord_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/driver_concord_test suite/driver_concord_test.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c",
+    "file": "run/run.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/driver_weld_test suite/driver_weld_test.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c",
+    "file": "suite/driver_weld_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "suite/exec_lint_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "suite/parse.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "suite/exec.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "suite/nemesis.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "driver/concord.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/exec_lint_test suite/exec_lint_test.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "driver/weld.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -I. -fsanitize=address,undefined -fno-omit-frame-pointer -o bin/fuzz_parse suite/fuzz_parse.c suite/parse.c",
+    "file": "suite/fuzz_parse.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -o bin/heap_test check/heap_test.c heap/heap.c",
+    "file": "check/heap_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/mcast check/mcast.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "check/mcast.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/mcast_test check/mcast_test.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c",
+    "file": "check/mcast_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -I. -o bin/nemesis_test suite/nemesis_test.c suite/nemesis.c suite/parse.c",
+    "file": "suite/nemesis_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/net_test suite/net_test.c math/math.c world/world.c node/node.c",
+    "file": "suite/net_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -o bin/node_test check/node_test.c node/node.c",
+    "file": "check/node_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -I. -o bin/parse_test suite/parse_test.c suite/parse.c",
+    "file": "suite/parse_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -I. -o bin/prog_test suite/prog_test.c cmd/progress.c",
+    "file": "suite/prog_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -I. -o bin/prog_test suite/prog_test.c cmd/progress.c",
+    "file": "cmd/progress.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/rsuite cmd/main.c cmd/progress.c suite/parse.c suite/exec.c suite/nemesis.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c driver/concord.c driver/weld.c",
+    "file": "cmd/main.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/run_sample_test suite/run_sample_test.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c run/run.c",
+    "file": "suite/run_sample_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/sim_net_test suite/sim_net_test.c sim/sim.c tun/tun.c math/math.c world/world.c node/node.c shared/context.c heap/heap.c rng/rng.c",
+    "file": "suite/sim_net_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/tun_drop check/tun_drop.c tun/tun.c math/math.c world/world.c node/node.c",
+    "file": "check/tun_drop.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/tun_netns check/tun_netns.c tun/tun.c math/math.c world/world.c node/node.c",
+    "file": "check/tun_netns.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -I. -o bin/tun_stat_test suite/tun_stat_test.c math/math.c world/world.c node/node.c",
+    "file": "suite/tun_stat_test.c"
+  },
+  {
+    "directory": "/home/neil/Documents/resonance",
+    "command": "cc -std=c23 -Wall -Wextra -Werror -O2 -Wunused-result -Wpedantic -Wno-pedantic -o bin/world_test check/world_test.c world/world.c",
+    "file": "check/world_test.c"
   }
 ]

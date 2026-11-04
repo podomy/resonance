@@ -1,0 +1,15 @@
+# concord-two mirrors
+# check/concord_two.c: two-node
+# mesh, 45 s deadline. The peers
+# check covers both log spacings.
+name: concord-two
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 45
+phases:
+  - name: mesh
+    until:
+      peers: 2
+      on: all
+    timeout_s: 45

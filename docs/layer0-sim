@@ -35,7 +35,7 @@ In-process UDP (udp/udp.h, udp/udp.c). A tiny UDP for tests
 that run without real binaries. Delivery goes through the same
 radio_path check as real packets, then lands in the event heap.
 Raw binaries never call this; they use kernel sockets and a TUN.
-It exists for make check and small experiments. check/mcast_test.c
+It exists for make test and small experiments. check/mcast_test.c
 shows the intended use: bind three nodes, move one, assert delivery.
 
 Context (shared/context.h, shared/context.c, shared/events.h).

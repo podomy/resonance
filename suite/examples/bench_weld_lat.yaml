@@ -1,0 +1,33 @@
+# bench-weld-lat: one-way latency
+# proof for the weld benchmark.
+# Tiny scale only: three paced pubs
+# at 5/sec, first one warmup. Each
+# payload carries bench#seq#send_ns#
+# ahead of bench-load; the observed
+# path anchors on the full prefix,
+# so tag like user text cannot false
+# hit. New metrics ride the same
+# site: rate_ach, per-message lat
+# (cap 2000 plus truncated), hist
+# buckets under edges 1 2 5 10 20
+# 50 100 200 500. Unrunnable here:
+# needs weld plus TUN, lint only.
+name: bench-weld-lat
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 60
+phases:
+  - name: load
+    do:
+      - benchmark:
+          from: 0
+          text: bench-load
+          on: 1
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

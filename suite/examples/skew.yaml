@@ -1,0 +1,21 @@
+# skew-one boots node 1 with a clock
+# offset, then meshes and holds.
+name: skew-one
+version: 1
+sut: concord
+nodes: 2
+timeout_s: 120
+spawn:
+  variant: skew
+  node: 1
+  offset: "300"
+phases:
+  - name: mesh
+    until:
+      peers: 2
+      on: all
+    timeout_s: 60
+  - name: stay
+    sustain:
+      mesh_count: 2
+    timeout_s: 30

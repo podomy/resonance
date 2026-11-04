@@ -1,0 +1,50 @@
+# bench-generic-pair: any ordered
+# pair proof for the endpoint
+# model. First phase weld:0 to
+# ros:1 (ROS log only), second
+# ros:0 to weld:1 (dual logs).
+# Explicit weld:/ros: kinds name
+# the kind; bare N means weld.
+# Concord kinds fail loudly (no
+# pub/log verb). Needs ros.pub
+# for ROS publish plus ros.peer
+# for the beside peer. Unrunnable
+# here: needs weld plus TUN, lint
+# proves shape only.
+name: bench-generic-pair
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+needs:
+  - ros.pub
+  - ros.peer
+timeout_s: 90
+ros_peers:
+  - node: 1
+    distro: jazzy
+phases:
+  - name: w2r
+    do:
+      - benchmark:
+          from: weld:0
+          text: pair-load
+          on: ros:1
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: r2w
+    do:
+      - benchmark:
+          from: ros:0
+          text: pair-load
+          on: weld:1
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

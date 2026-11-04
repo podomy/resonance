@@ -1,0 +1,37 @@
+# bench-roundtrip: echo roundtrip
+# proof for the weld benchmark.
+# Tiny scale only: three paced pubs
+# at 5/sec from node 0, relay on
+# node 1 republishes each line to
+# <topic>/pong byte identical. The
+# observer on node 0 watches pong;
+# RTT is reply minus send. By weld
+# checks the weld log, by ros would
+# check the ROS log where a peer
+# runs. Needs relay.echo for the
+# relay. Unrunnable here: needs weld
+# plus TUN, lint proves shape only.
+name: bench-roundtrip
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+needs:
+  - relay.echo
+timeout_s: 60
+phases:
+  - name: round
+    do:
+      - benchmark:
+          from: 0
+          text: bench-ping
+          on: 0
+          rate: 5
+          count: 3
+          warmup: 1
+          echo:
+            by: weld
+            node: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

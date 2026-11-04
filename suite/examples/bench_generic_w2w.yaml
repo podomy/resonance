@@ -1,0 +1,32 @@
+# bench-generic-w2w: explicit generic
+# weld to weld pairing. Send names
+# weld-pub, expect names log-contains.
+# Canonical payload template expands
+# to bench#seq#send_ns#body, same bytes
+# as the sugar from/on/text form.
+# Unrunnable here: needs weld plus TUN.
+name: bench-generic-w2w
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 60
+phases:
+  - name: load
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            body: bench-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: bench-load
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30

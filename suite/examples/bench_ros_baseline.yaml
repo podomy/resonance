@@ -1,0 +1,48 @@
+# bench-ros-baseline: ROS driven
+# publish baseline for weld. First
+# phase runs a benchmark from ros:0
+# (ROS publish via ros_pub_once on
+# node 0 peer). Second phase fires
+# raw ROS pubs outside benchmarks
+# via ros_pub. Both use bench tag
+# payloads with send_ns for prefix
+# anchoring. Needs ros.pub plus
+# ros.peer for the beside peer.
+# Unrunnable here: needs docker plus
+# TUN, lint proves shape only.
+name: bench-ros-baseline
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+needs:
+  - ros.pub
+  - ros.peer
+timeout_s: 90
+ros_peers:
+  - node: 0
+    distro: jazzy
+phases:
+  - name: ros-load
+    do:
+      - benchmark:
+          from: ros:0
+          text: ros-load
+          on: 1
+          rate: 2
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: ros-fire
+    do:
+      - ros_pub:
+          from: 0
+          topic: /chatter
+          text: ros-fire
+          rate: 2
+          count: 3
+    until:
+      mesh_count: 2
+    timeout_s: 30

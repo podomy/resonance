@@ -1,0 +1,41 @@
+# agree chains submit, unanimity,
+# per-node assignment, and an epoch
+# floor on one named workload.
+name: agree
+version: 1
+sut: concord
+nodes: 3
+timeout_s: 200
+phases:
+  - name: mesh
+    until:
+      mesh_count: 3
+    timeout_s: 45
+  - name: submit
+    do:
+      - submit:
+          node: 0
+          image: probe
+          as: w0
+    until:
+      assigned:
+        workload: w0
+    timeout_s: 45
+  - name: unanimous
+    until:
+      agree:
+        workload: w0
+    timeout_s: 30
+  - name: placed
+    until:
+      assigned_on:
+        workload: w0
+        node: 1
+    timeout_s: 30
+  - name: epochfloor
+    until:
+      epoch:
+        workload: w0
+        node: 0
+        gte: 1
+    timeout_s: 30

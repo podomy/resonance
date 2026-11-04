@@ -16,11 +16,48 @@ jobs:
         run: make
 
       - name: Run checks
-        run: make check
+        run: make test
+
+  strict:
+    name: C23 Standard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # C-only jobs: every link line below is
+      # $(CC) over C sources, so no setup-go
+      # step. Go is needed only for img-build
+      # and concord targets, avoided here.
+
+      - name: C23 standard gate
+        run: make standard
+
+      - name: Strict builds
+        run: |
+          make bin/rsuite bin/parse_test bin/net_test bin/nemesis_test bin/exec_lint_test
+          make bin/driver_concord_test bin/driver_weld_test bin/run_sample_test bin/sim_net_test bin/tun_stat_test bin/prog_test
+          make bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
+          make bin/concord_two bin/concord_three bin/concord_scale
+
+      - name: Run unit tests
+        run: ./bin/parse_test && ./bin/net_test && ./bin/nemesis_test && ./bin/exec_lint_test && ./bin/driver_concord_test && ./bin/driver_weld_test && ./bin/run_sample_test && ./bin/sim_net_test && ./bin/tun_stat_test && ./bin/prog_test
+
+      - name: Run checks
+        run: make test
+
+      - name: Lint suites
+        run: make suite-lint
+
+  sanitizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fuzz the parser
+        run: make fuzz-parse
 
   build:
     name: Build Binaries
-    needs: verify
+    needs: [verify, strict]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,39 +66,11 @@ jobs:
         run: |
           mkdir -p dist
           make
-          cp bin/resonance dist/resonance-linux-amd64
+          cp bin/rsuite dist/rsuite-linux-amd64
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: resonance-linux-amd64
-          path: dist/resonance-linux-amd64
+          name: rsuite-linux-amd64
+          path: dist/rsuite-linux-amd64
           retention-days: 30
-
-  concord:
-    name: Concord Scenarios
-    needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-
-      # sudo sanitizes PATH, so expose go where sudo finds it.
-      - name: Link Go into secure PATH
-        run: sudo ln -sf "$(which go)" /usr/local/bin/go
-
-      # Concord requires an operator-provisioned CA in
-      # PKCS#1 format; mint an ephemeral one per run.
-      - name: Generate test CA
-        run: |
-          mkdir -p certs
-          openssl genrsa -traditional -out certs/ca.key 2048
-          openssl req -new -x509 -key certs/ca.key -out certs/ca.crt -days 2 -subj "/CN=resonance-test-ca"
-
-      - name: Run Concord scenarios
-        run: sudo make check-full

@@ -1,0 +1,127 @@
+# bench-generic-sweep-ladder: size
+# sweep as phases plus rate ladder as
+# phases, both in explicit generic form.
+# No sweep syntax exists: one benchmark
+# per phase with different payload_bytes
+# (64, 256, 1024) proves sizes. Then one
+# benchmark per phase at rising rate (5,
+# 10, 20) proves the ladder. Adaptive
+# ramp: blocks stay separate, see the
+# ramp example. All pairs are weld-pub
+# to log-contains; nonsense pairs would
+# measure 100 percent loss, not fail.
+name: bench-generic-sweep-ladder
+version: 1
+sut: weld
+nodes: 2
+domain: 64
+timeout_s: 180
+phases:
+  - name: small
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            payload_bytes: 64
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: bench#
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: medium
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            payload_bytes: 256
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: bench#
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: large
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            payload_bytes: 1024
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: bench#
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: slow
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            body: ramp-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: ramp-load
+          rate: 5
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: mid
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            body: ramp-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: ramp-load
+          rate: 10
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
+  - name: fast
+    do:
+      - benchmark:
+          send:
+            node: 0
+            via: weld-pub
+            body: ramp-load
+            payload: "bench#{{seq}}#{{send_ns}}#{{body}}"
+          expect:
+            node: 1
+            via: log-contains
+            match: ramp-load
+          rate: 20
+          count: 3
+          warmup: 1
+    until:
+      mesh_count: 2
+    timeout_s: 30
