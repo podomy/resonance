@@ -10,6 +10,25 @@ partition, fault, and scale scenarios. Concord
 is the other. Scenarios are YAML files run by bin/rsuite; no
 SUT-specific binary ships with the harness.
 
+Scope
+
+  Concord reference matrix is consolidated, not expanding. INVARIANTS
+  names the pinned behaviors and check/ holds their frozen
+  enforcement. The mesh stays the only channel between nodes.
+  All work goes inward:
+  correctness, reliability, verification, and optimization of what
+  is already here. No new surface, fixes only.
+
+  The bar, same for every change: externally identical behavior.
+  Optimization needs a measurement before and after, not a hunch.
+  Replacement needs the same wire format, CLI surface, and journal
+  semantics, proven by the existing gate plus a Resonance run, not
+  by reading the diff. Fixes need a failing gate first, then the
+  smallest patch that turns it green without moving any other
+  number. Cleanup needs the full gate green on both sides; elegance
+  in the diff proves nothing. Anything adding a flag, a verb, or a
+  field is expansion, and the answer is no until the freeze lifts.
+
 Build and test
 
   make                    # build rsuite (test bins build transiently under test)
