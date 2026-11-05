@@ -119,18 +119,18 @@ Two rules for the whole codebase
 
 Running the checks
 
-  make                    # build resonance and rsuite (test bins build transiently under test)
+  make                    # build rsuite (test bins build transiently under test)
   make test               # run all tests plus lint plus standard, no privs
-  make suite-lint         # validate suite/examples/*.yaml, no privileges
+  make lint               # validate suite/examples/*.yaml, no privileges
   make standard           # C23 spelling plus version gate, no privileges
   bin/rsuite lint file.yaml...    # same validation, explicit files
   bin/rsuite run file.yaml...     # run YAML scenarios (needs root for netns + TUN)
   bin/rsuite list file.yaml...    # parse-only summary, needs no privileges
   bin/rsuite doctor                 # report on binaries, TUN, netns, docker, run lock
 
-`make` leaves out bin/fuzz_parse, which needs ASan plus UBSan
+`make` leaves out bin/fuzzer, which needs ASan plus UBSan
 runtimes absent on some hosts. Build that one with `make
-fuzz-parse`. `make test` needs no privileges for most binaries.
+fuzzer`. `make test` needs no privileges for most binaries.
 The two TUN tests skip gracefully without them. It runs the Go
 suite when Go exists, else it prints a skip line and stays green.
 bin/rsuite run needs root because it creates network namespaces

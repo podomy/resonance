@@ -46,14 +46,14 @@ jobs:
         run: make test
 
       - name: Lint suites
-        run: make suite-lint
+        run: make lint
 
   sanitizer:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Fuzz the parser
-        run: make fuzz-parse
+        run: make fuzzer
 
   build:
     name: Build Binaries

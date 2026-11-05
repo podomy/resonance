@@ -33,18 +33,18 @@ Build and test
 
   make                    # build rsuite (test bins build transiently under test)
   make test               # run all tests plus lint plus standard, no privs
-  make suite-lint         # validate suite/examples/*.yaml, no privileges
+  make lint               # validate suite/examples/*.yaml, no privileges
   make standard           # C23 spelling plus version gate, no privileges
-  make fuzz-parse         # ASan parser fuzz over YAML, needs sanitizer
+  make fuzzer             # ASan parser fuzz over YAML, needs sanitizer
   make img-build          # build test image bins offline, needs Go
   make clean              # remove binaries and test artifacts
   make compile-commands   # refresh clang tooling input, no privileges
 
-`make` builds bin/rsuite, and every test binary. It
-leaves out bin/fuzz_parse, which needs ASan plus UBSan runtimes that
-are absent on some hosts. Build that one with `make fuzz-parse`.
+`make` builds bin/rsuite. It
+leaves out bin/fuzzer, which needs ASan plus UBSan runtimes that
+are absent on some hosts. Build that one with `make fuzzer`.
 `make test` is the single unprivileged entry point: it runs every
-test binary (TUN tests skip without privileges), then suite-lint,
+test binary (TUN tests skip without privileges), then lint,
 then standard, then the Go suite when Go exists, else it prints a
 skip line and stays green. C-only boxes pass without Go; concord
 and img paths need Go.
@@ -58,10 +58,11 @@ via the bin/rsuite target):
   bin/rsuite doctor                 # report on setup and dependencies
 
 Every make target above exists in the Makefile: all (the bare make),
-test, suite-lint, standard, fuzz-parse,
+test, lint, standard, fuzzer,
 img-build, clean, compile-commands, plus the file targets
-bin/rsuite, and every test binary. The .PHONY list
-names every phony target, so a file named suite-lint never shadows
+bin/rsuite, and every test binary. `log` and `check` are retired
+stubs that fail loudly. The .PHONY list
+names every phony target, so a file named lint never shadows
 the lint target.
 
 Scenario files live in suite/examples/*.yaml (minimal examples

@@ -17,7 +17,7 @@ reference at the named section, fix the named key, and rerun the
 linter. For the full rule table do not copy from here; docs/yaml is
 the authority with per-key scope, ranges, and its own code map. Lint
 prints path plus line plus message. Unknown keys fail through the
-unknown-key path. Validate with make suite-lint or bin/rsuite lint.
+unknown-key path. Validate with make lint or bin/rsuite lint.
 List success does not imply lint success.
 
 Where to look per category:

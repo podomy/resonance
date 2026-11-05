@@ -6,7 +6,7 @@ see a full file, then the key sections to author, then Limits before
 submitting. When this file and older prose disagree, the code wins.
 Lint with:
 
-  make suite-lint
+  make lint
 
 Run with bin/rsuite run (needs root for netns plus TUN). List with
 bin/rsuite list. Integers accept bare or quoted digits. Extra keys

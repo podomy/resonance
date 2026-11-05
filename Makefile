@@ -76,10 +76,10 @@ TEST_BINS = bin/heap_test bin/node_test \
 # Test binaries are NOT built here; `make test`
 # builds them, runs them, then removes them,
 # so bin/ never accumulates test artifacts.
-# fuzz_parse stays out too: it needs ASan plus
+# fuzzer stays out too: it needs ASan plus
 # UBSan runtimes, absent on some hosts, so plain
 # `make` must not require it. Build it via
-# `make fuzz-parse`.
+# `make fuzzer`.
 all: bin/rsuite
 
 bin:
@@ -94,7 +94,7 @@ bin/node_test: check/node_test.c node/node.c | bin
 bin/world_test: check/world_test.c world/world.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
-bin/determinism: check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c | bin
+bin/determinism: check/determinism.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
 bin/mcast_test: check/mcast_test.c heap/heap.c rng/rng.c shared/context.c node/node.c world/world.c udp/udp.c | bin
@@ -133,7 +133,7 @@ bin/nemesis_test: suite/nemesis_test.c suite/nemesis.c suite/parse.c | bin
 bin/exec_lint_test: suite/exec_lint_test.c $(SUITE_SRCS) $(SIM_SRCS) $(RUN_SRCS) $(DRIVER_SRCS) | bin
 	$(CC) $(CFLAGS) -I. -o $@ $^
 
-bin/fuzz_parse: suite/fuzz_parse.c suite/parse.c | bin
+bin/fuzzer: suite/fuzzer.c suite/parse.c | bin
 	$(CC) $(CFLAGS) -I. -fsanitize=address,undefined -fno-omit-frame-pointer -o $@ $^
 
 bin/driver_concord_test: suite/driver_concord_test.c $(SIM_SRCS) $(RUN_SRCS) | bin
@@ -154,16 +154,16 @@ bin/tun_stat_test: suite/tun_stat_test.c math/math.c world/world.c node/node.c |
 bin/prog_test: suite/prog_test.c cmd/progress.c | bin
 	$(CC) $(CFLAGS) -I. -o $@ $^
 
-fuzz-parse: bin/fuzz_parse
-	test -n "$(SUITE_YAML)" || { echo "fuzz-parse: no YAML files"; exit 1; }
-	./bin/fuzz_parse $(SUITE_YAML)
+fuzzer: bin/fuzzer
+	test -n "$(SUITE_YAML)" || { echo "fuzzer: no YAML files"; exit 1; }
+	./bin/fuzzer $(SUITE_YAML)
 
-# suite-lint validates every YAML scenario without privileges.
+# lint validates every YAML scenario without privileges.
 # Uses wildcard so empty dirs fail with a clear note
 # instead of handing a literal *.yaml path to rsuite.
 SUITE_YAML := $(wildcard suite/examples/*.yaml)
-suite-lint: bin/rsuite
-	test -n "$(SUITE_YAML)" || { echo "suite-lint: no YAML files"; exit 1; }
+lint: bin/rsuite
+	test -n "$(SUITE_YAML)" || { echo "lint: no YAML files"; exit 1; }
 	./bin/rsuite lint $(SUITE_YAML)
 
 IMG_SRCS = img/img.c
@@ -287,7 +287,7 @@ bin/concord_img: check/concord_img.c $(SIM_SRCS) $(IMG_SRCS) | bin img-build
 	$(CC) $(CFLAGS) -o $@ $^
 
 # test is the single unprivileged entry point.
-# It runs every TEST_BIN, then suite-lint, then
+# It runs every TEST_BIN, then lint, then
 # the standard gate, then the Go suite when Go
 # exists. Go stays conditional: concord plus img
 # paths need Go, but C-only boxes still pass
@@ -295,7 +295,7 @@ bin/concord_img: check/concord_img.c $(SIM_SRCS) $(IMG_SRCS) | bin img-build
 # and stays green.
 test: $(TEST_BINS) bin/rsuite
 	for t in $(TEST_BINS); do ./$$t || exit 1; done
-	$(MAKE) suite-lint
+	$(MAKE) lint
 	$(MAKE) standard
 	if command -v go >/dev/null 2>&1; then cd test && go test ./...; else echo "test: go not found, skipping Go suite (Go needed for concord/img paths; C-only boxes still pass)"; fi
 	# Last on purpose: standard reuses these same binaries
@@ -358,4 +358,4 @@ check:
 	@echo "check is gone; run 'make test' instead." >&2
 	exit 1
 
-.PHONY: all test clean compile-commands img-build log suite-lint standard fuzz-parse check
+.PHONY: all test clean compile-commands img-build log lint standard fuzzer check

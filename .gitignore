@@ -5,5 +5,6 @@ certs/
 current.log
 *.o
 .cache/
-img/rootfs/probe
-img/rootfs/probe-check
+dist/
+img/rootfs/
+compile_commands.json

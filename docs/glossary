@@ -145,7 +145,7 @@ delivery for tests with no binaries. TUN (`tun/tun.h`) is real
 packets through real devices for binaries. SUT binaries never call
 UDP; they use kernel sockets and a TUN (Concord binaries are the
 example). Use UDP for `make
-check` and small experiments; use TUN when a real binary must talk.
+test` and small experiments; use TUN when a real binary must talk.
 
 **exit code.** How a child or helper reports done. Zero means ok,
 nonzero means fail, 127 means the child could not start. `weld_pub`
