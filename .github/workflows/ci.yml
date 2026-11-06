@@ -6,11 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CC: clang
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
 
       - name: Build
         run: make
@@ -28,6 +34,11 @@ jobs:
       # $(CC) over C sources, so no setup-go
       # step. Go is needed only for img-build
       # and concord targets, avoided here.
+      # CC is clang from apt: stock gcc
+      # predates -std=c23.
+
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
 
       - name: C23 standard gate
         run: make standard
@@ -51,6 +62,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+
       - name: Fuzz the parser
         run: make fuzzer
 
@@ -60,6 +75,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
 
       - name: Build binary
         run: |
