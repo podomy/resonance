@@ -177,6 +177,7 @@ bin/mcast: check/mcast.c $(SIM_SRCS) | bin
 # without it, so missing Go prints a skip line
 # and stays green.
 test: $(TEST_BINS) bin/rsuite
+	mkdir -p /tmp/opencode
 	for t in $(TEST_BINS); do ./$$t || exit 1; done
 	$(MAKE) lint
 	$(MAKE) standard
