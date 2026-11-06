@@ -41,7 +41,8 @@ instead of the sum. The remaining limit is host-table collisions for
 runs that keep node 0 in the host namespace: both claim the host
 224.0.0.0/4 route and bind port 7946 on node 0 (sim/sim.c:357-371).
 Parallel runs use the isolated path, which the suite executor always
-selects. The 33 check/ Concord files stay serial and frozen.
+selects. The Concord scenarios run as YAML through bin/rsuite
+run --jobs N on that path.
 
 Batch process spawning. Starting one node shells out roughly
 eight times (make directory, copy certs, copy gossip key, write

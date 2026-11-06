@@ -30,6 +30,28 @@ static void ns_prefix(int node, char* out, size_t n) {
     snprintf(out, n, "ip netns exec resonance_%d ", node);
 }
 
+// ns_prefix_net writes "" for node 0 on the shared
+// path, else "ip netns exec <prefix><i> " into out.
+// The executor path always isolates, so node 0 gets
+// its own namespace there too.
+static void ns_prefix_net(const SimNet* net, int node,
+                          char* out, size_t n) {
+    int m;
+
+    if (net == nullptr) {
+        out[0] = '\0';
+        return;
+    }
+    if (node <= 0 && net->isolate_all == 0) {
+        out[0] = '\0';
+        return;
+    }
+    m = snprintf(out, n, "ip netns exec %s%d ",
+                 net->ns_prefix, node);
+    if (m < 0 || m >= (int)n)
+        out[0] = '\0';
+}
+
 // read_line runs cmd and stores its first line into out.
 // Returns 1 on success.
 static int read_line(const char* cmd, char* out,
@@ -91,63 +113,48 @@ static void tmp_path(const char* name, char* out,
              (int)getpid(), name);
 }
 
-// put_blob uploads one blob into node i's registry under
-// repo: POST opens the upload, PUT closes it with the
-// digest. Returns 1 on HTTP 201.
-static int put_blob(int node, const char* repo,
+// put_blob uploads one blob into a node's registry with
+// a monolithic POST carrying ?digest=: the registry answers
+// 201 directly, no session Location dance. ns runs curl in
+// the node's namespace, empty means the host netns. Returns
+// 1 on HTTP 201.
+static int put_blob(const char* ns, const char* repo,
                     const char* path,
                     const char* digest) {
-    char ns[64];
     char cmd[2048];
-    char loc[512];
-    char url[1024];
-    char hdrs[64];
+    char code[64];
 
-    tmp_path("hdrs", hdrs, sizeof(hdrs));
-    ns_prefix(node, ns, sizeof(ns));
+    tmp_path("code", code, sizeof(code));
     snprintf(cmd, sizeof(cmd),
-             "%scurl -s -o /dev/null -D "
-             "%s --max-time 30 -X "
-             "POST \"http://127.0.0.1:%d/v2/%s/blobs/"
-             "uploads/\" 2>/dev/null",
-             ns, hdrs, IMG_PORT, repo);
-    if (!run(cmd))
-        return (fail("open upload"));
-    snprintf(cmd, sizeof(cmd),
-             "grep -i '^location:' "
-             "%s 2>/dev/null | "
-             "head -1 | cut -d' ' -f2 | tr -d '\r\n'",
-             hdrs);
-    if (!read_line(cmd, loc, sizeof(loc)))
-        return (fail("upload location"));
-    if (loc[0] == '/') {
-        snprintf(url, sizeof(url),
-                 "http://127.0.0.1:%d%s", IMG_PORT,
-                 loc);
-    } else if (strncmp(loc, "http", 4) == 0) {
-        snprintf(url, sizeof(url), "%s", loc);
-    } else {
-        return (fail("upload location shape"));
-    }
-    snprintf(cmd, sizeof(cmd),
-             "%scurl -s -o /dev/null -w \"%%{http_code}\" "
-             "--max-time 60 -X PUT --data-binary @%s "
-             "\"%s?digest=sha256:%s\" 2>/dev/null | "
+             "%scurl -s -o /dev/null -w "
+             "\"%%{http_code}\" "
+             "--max-time 60 -X POST --data-binary @%s "
+             "\"http://127.0.0.1:%d/v2/%s/blobs/"
+             "uploads/?digest=sha256:%s\" "
+             "2>/dev/null | tee %s | "
              "grep -qx 201",
-             ns, path, url, digest);
-    if (!run(cmd))
-        return (fail("close upload"));
-    return (1);
+             ns, path, IMG_PORT, repo,
+             digest, code);
+    if (run(cmd))
+        return (1);
+    if (getenv("IMG_DEBUG") != nullptr) {
+        char out[16];
+
+        if (read_line(code, out,
+                      sizeof(out)))
+            printf("[img] blob code %s\n",
+                   out);
+    }
+    return (fail("put blob"));
 }
 
 // put_manifest uploads manifest_path as repo:tag into
 // node i's registry. Retries a few times: the registry
 // can answer 405 while it is still indexing a just
 // pushed blob. Returns 1 on HTTP 201.
-static int put_manifest(int node, const char* repo,
+static int put_manifest(const char* ns, const char* repo,
                         const char* tag,
                         const char* manifest_path) {
-    char ns[64];
     char cmd[2048];
     char body[64], hdrs[64], code[64];
     int tries;
@@ -155,7 +162,6 @@ static int put_manifest(int node, const char* repo,
     tmp_path("body", body, sizeof(body));
     tmp_path("hdump", hdrs, sizeof(hdrs));
     tmp_path("code", code, sizeof(code));
-    ns_prefix(node, ns, sizeof(ns));
     snprintf(cmd, sizeof(cmd),
              "%scurl -s -o %s -D "
              "%s -w "
@@ -214,17 +220,21 @@ static int write_text(const char* path, const char* s) {
     return (fclose(fp) == 0);
 }
 
-// img_push tars rootfs_dir and pushes it as repo:tag
-// into node i's registry. Returns 1 on success.
-bool img_push(int node, const char* repo, const char* tag,
-              const char* rootfs) {
+// push_at tars rootfs_dir and pushes it as repo:tag
+// into the registry reached through ns (empty runs on
+// the host). entry becomes the image Entrypoint.
+// Returns 1 on success.
+static bool push_at(const char* ns, const char* repo,
+                    const char* tag,
+                    const char* rootfs,
+                    const char* entry) {
     char layer[256], config[256], manifest[256];
     char layerhex[65], confighex[65];
     char configjson[1024], manifestjson[2048];
     size_t layersz, configsz;
 
-    if (node < 0 || node > 253 || repo == nullptr ||
-        tag == nullptr || rootfs == nullptr)
+    if (repo == nullptr || tag == nullptr ||
+        rootfs == nullptr || entry == nullptr)
         return (false);
     if (strchr(repo, '/') != nullptr ||
         strchr(tag, '/') != nullptr)
@@ -258,13 +268,13 @@ bool img_push(int node, const char* repo, const char* tag,
         return (fail("layer size"));
     snprintf(configjson, sizeof(configjson),
              "{\"architecture\":\"amd64\",\"os\":\"linux\","
-             "\"config\":{\"Entrypoint\":[\"/probe\"],"
+             "\"config\":{\"Entrypoint\":[\"%s\"],"
              "\"ExposedPorts\":{\"8080/tcp\":{}}},"
              "\"rootfs\":{\"type\":\"layers\",\"diff_ids\":"
              "[\"sha256:%s\"]},\"history\":[{\"created\":"
              "\"2026-01-01T00:00:00Z\",\"comment\":"
              "\"resonance test image\"}]}",
-             layerhex);
+             entry, layerhex);
     if (!write_text(config, configjson))
         return (fail("write config"));
     if (!sha256_file(config, confighex))
@@ -283,13 +293,73 @@ bool img_push(int node, const char* repo, const char* tag,
              confighex, configsz, layerhex, layersz);
     if (!write_text(manifest, manifestjson))
         return (fail("write manifest"));
-    if (!put_blob(node, repo, layer, layerhex))
+    if (!put_blob(ns, repo, layer, layerhex))
         return (fail("put layer"));
-    if (!put_blob(node, repo, config, confighex))
+    if (!put_blob(ns, repo, config, confighex))
         return (fail("put config"));
-    if (!put_manifest(node, repo, tag, manifest))
+    if (!put_manifest(ns, repo, tag, manifest))
         return (fail("put manifest"));
     return (1);
+}
+
+// img_push tars rootfs_dir and pushes it as repo:tag
+// into node i's registry. Returns 1 on success.
+// Entrypoint is always /probe: check/ only.
+// New code uses img_push_net instead.
+bool img_push(int node, const char* repo, const char* tag,
+              const char* rootfs) {
+    char ns[64];
+
+    if (node < 0 || node > 253)
+        return (false);
+    ns_prefix(node, ns, sizeof(ns));
+    return (push_at(ns, repo, tag, rootfs, "/probe"));
+}
+
+// img_push_net is img_push for an explicit
+// network: node 0 runs in the host netns
+// only on the shared path, else in its own
+// namespace like every other node. The
+// entrypoint runs when the image starts;
+// /hog serves the memory-pressure tests.
+// Rootfs is read from the shared
+// filesystem, so no byte crosses the
+// sim mesh. Returns 1 on success.
+bool img_push_net(const SimNet* net,
+                  int node,
+                  const char* repo,
+                  const char* tag,
+                  const char* rootfs,
+                  const char* entry) {
+    char ns[64];
+    size_t i;
+
+    if (net == nullptr || !sim_net_valid(net))
+        return (false);
+    if (node < 0 || node >= TUN_MAP_MAX)
+        return (false);
+    if (repo == nullptr || repo[0] == '\0' ||
+        tag == nullptr || tag[0] == '\0' ||
+        rootfs == nullptr || rootfs[0] == '\0' ||
+        entry == nullptr || entry[0] != '/')
+        return (false);
+    for (i = 0; entry[i] != '\0'; i++) {
+        char ch = entry[i];
+
+        if ((ch >= 'A' && ch <= 'Z') ||
+            (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '_' || ch == '.' ||
+            ch == '/' || ch == '-') {
+            continue;
+        }
+        return (false);
+    }
+    ns_prefix_net(net, node, ns, sizeof(ns));
+    if (ns[0] != '\0' && strncmp(ns, "ip netns exec ",
+                                  13) != 0)
+        return (false);
+    return (push_at(ns, repo, tag, rootfs, entry));
 }
 
 // get_body stores the body of path on node i's registry

@@ -7,6 +7,7 @@
 #include "run/run.h"
 #include "sim/sim.h"
 #include "tun/tun.h"
+#include "img/img.h"
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
@@ -271,6 +272,7 @@ typedef enum {
     ST_JCORRUPT,
     ST_BENCH,
     ST_ROSPUB,
+    ST_PUSH,
 } StepKind;
 
 // DropDir picks the fd set a net
@@ -398,6 +400,15 @@ typedef struct {
     double exp_thresh;
     long long exp_port;
     char exp_path[128];
+    // Push extras: registry coordinates
+    // for the image supply step. Repo
+    // plus tag name the image, rootfs
+    // locates the shared layer dir,
+    // entry runs when it starts.
+    char push_repo[64];
+    char push_tag[64];
+    char push_rootfs[kPathLen];
+    char push_entry[128];
 } ExStep;
 
 // CondKind names one check.
@@ -498,6 +509,16 @@ typedef struct {
     // disk_cap_mb caps boot state in
     // MB, 0 uncapped, concord-only.
     unsigned long long disk_cap_mb;
+    // isolate selects fully isolated
+    // netns for every node (no host
+    // footprint, safe for parallel
+    // runs) when true, the default,
+    // or host mode with node 0 on
+    // the host (like check/, needs
+    // no parallel host runs) when
+    // false. Concord-only; weld
+    // always isolates.
+    bool isolate;
     ExPhase *phases;
     size_t nphases;
 } ExFile;
@@ -821,6 +842,50 @@ static bool image_ok(const char *s) {
         }
         return (false);
     }
+    return (true);
+}
+
+// push_word copies a scalar repo, tag,
+// rootfs, or entrypoint value with its
+// charset gate: alnum plus _ . -, plus
+// slash when slash is set (rootfs and
+// entrypoint only; repo and tag reach
+// the shell unquoted through tar paths
+// and registry URLs). Empty and
+// over-long fail.
+static bool push_word(const SuiteNode *n,
+                      char *out,
+                      size_t m,
+                      int slash) {
+    const char *t = nullptr;
+    size_t i = 0;
+
+    if (n == nullptr || out == nullptr ||
+        m == 0) {
+        return (false);
+    }
+    t = suite_scalar_str(n);
+    if (t == nullptr || t[0] == '\0') {
+        return (false);
+    }
+    for (i = 0; t[i] != '\0'; i++) {
+        char ch = t[i];
+
+        if ((ch >= 'A' && ch <= 'Z') ||
+            (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '_' || ch == '.' ||
+            ch == '-' ||
+            (slash != 0 &&
+             ch == '/')) {
+            continue;
+        }
+        return (false);
+    }
+    if (i >= m) {
+        return (false);
+    }
+    memcpy(out, t, i + 1);
     return (true);
 }
 
@@ -6185,6 +6250,108 @@ static bool val_step(SuiteNode *map,
         s->node = (int)x;
         return (true);
     }
+    if (strcmp(key, "push") == 0) {
+        SuiteNode *a;
+        SuiteNode *b;
+        SuiteNode *t;
+        SuiteNode *e;
+        static const char *keep[] = {
+            "repo",
+            "tag",
+            "rootfs",
+            "entrypoint",
+        };
+
+        s->kind = ST_PUSH;
+        if (f->sut != kConcord) {
+            return (vbad(
+                v, line,
+                "push is "
+                "concord-only"));
+        }
+        if (val->kind != SUITE_MAP) {
+            return (vbad(
+                v, line,
+                "push needs a "
+                "mapping"));
+        }
+        if (!val_extra(val, keep, 4,
+                       "step", v)) {
+            return (false);
+        }
+        // Defaults mirror
+        // check/concord_img.c stock.
+        (void)snprintf(
+            s->push_repo,
+            sizeof(s->push_repo),
+            "concord-test");
+        (void)snprintf(
+            s->push_tag,
+            sizeof(s->push_tag),
+            "latest");
+        (void)snprintf(
+            s->push_rootfs,
+            sizeof(s->push_rootfs),
+            "img/rootfs");
+        (void)snprintf(
+            s->push_entry,
+            sizeof(s->push_entry),
+            "/probe");
+        a = suite_map_find(val,
+                           "repo");
+        b = suite_map_find(val,
+                           "tag");
+        t = suite_map_find(
+            val, "rootfs");
+        e = suite_map_find(
+            val, "entrypoint");
+        if (a != nullptr &&
+            !push_word(
+                a, s->push_repo,
+                sizeof(s->push_repo),
+                0)) {
+            return (vbad(
+                v, a->line,
+                "repo must be "
+                "1..63 of alnum "
+                "plus _ . -"));
+        }
+        if (b != nullptr &&
+            !push_word(
+                b, s->push_tag,
+                sizeof(s->push_tag),
+                0)) {
+            return (vbad(
+                v, b->line,
+                "tag must be "
+                "1..63 of alnum "
+                "plus _ . -"));
+        }
+        if (t != nullptr &&
+            !push_word(
+                t, s->push_rootfs,
+                sizeof(
+                    s->push_rootfs),
+                1)) {
+            return (vbad(
+                v, t->line,
+                "rootfs must be "
+                "a path"));
+        }
+        if (e != nullptr &&
+            (!push_word(
+                 e, s->push_entry,
+                 sizeof(s->push_entry),
+                 1) ||
+             s->push_entry[0] !=
+                 '/')) {
+            return (vbad(
+                v, e->line,
+                "entrypoint must "
+                "start with /"));
+        }
+        return (true);
+    }
     return (vunknown(v, line, "step",
                      key));
 }
@@ -6721,7 +6888,7 @@ static bool val_top(SuiteDoc *doc,
         "topic",   "spawn",
         "ros_peers", "timeout_s",
         "phases", "bins",
-        "disk_cap_mb",
+        "disk_cap_mb", "isolate",
     };
 
     root = doc->root;
@@ -6741,12 +6908,13 @@ static bool val_top(SuiteDoc *doc,
                     .key_line));
         }
     }
-    if (!val_extra(root, keep, 13,
+    if (!val_extra(root, keep, 14,
                    "top-level key",
                    v)) {
         return (false);
     }
     memset(o, 0, sizeof(*o));
+    o->isolate = true;
     nd = suite_map_find(root, "name");
     if (nd == nullptr) {
         return (vbad(v, root->line,
@@ -7016,6 +7184,36 @@ static bool val_top(SuiteDoc *doc,
         }
         o->disk_cap_mb =
             (unsigned long long)x;
+    }
+    nd = suite_map_find(root,
+                        "isolate");
+    if (nd != nullptr) {
+        const char *t;
+
+        if (o->sut != kConcord) {
+            return (vbad(
+                v, nd->line,
+                "isolate is "
+                "concord-only"));
+        }
+        t = suite_scalar_str(nd);
+        if (t == nullptr) {
+            return (vbad(
+                v, nd->line,
+                "isolate must be on "
+                "or off"));
+        }
+        if (strcmp(t, "on") == 0) {
+            o->isolate = true;
+        } else if (strcmp(
+                       t, "off") == 0) {
+            o->isolate = false;
+        } else {
+            return (vbad(
+                v, nd->line,
+                "isolate must be on "
+                "or off"));
+        }
     }
     nd = suite_map_find(root,
                         "timeout_s");
@@ -7485,6 +7683,7 @@ static bool need_ok(int sut,
         "journal.image",
         "journal.corrupt",
         "journal.has",
+        "image.push",
         "metrics.scrape",
         "disk.fill",
         "disk.readonly",
@@ -7805,11 +8004,16 @@ static void short_of(const char *wid,
 }
 
 // refresh_lists polls workload lists
-// for every live entry on every
-// node, throttled by the caller to
-// about one round per 2 s. First
-// sightings stamp pms for the
-// present latency metric.
+// once per node per round, then matches
+// every shortid in-process. One fork per
+// node, not per workload per node: 100
+// workloads polled per id would starve
+// the pump feeding the same process.
+// Throttled by the caller to about one
+// round per 2 s. First sightings stamp
+// pms for the present latency metric. A
+// failed node dump reads every entry as
+// absent, same as per-id misses.
 static void refresh_lists(EvalCtx *e) {
     int n;
     int i;
@@ -7820,23 +8024,38 @@ static void refresh_lists(EvalCtx *e) {
         return;
     }
     n = (int)e->f->nodes;
-    for (h = 0; h < e->tab->n; h++) {
-        char shortid[kShortLen];
+    for (i = 0; i < n; i++) {
+        char out[16384];
 
-        short_of(e->tab->ent[h].wid,
-                 shortid,
-                 sizeof(shortid));
-        for (i = 0; i < n; i++) {
-            e->plist[h][i] =
-                concord_list_has(
-                    e->statedir, i,
-                    shortid);
+        if (!concord_list_all(
+                e->statedir, i, out,
+                sizeof(out))) {
+            for (h = 0; h < e->tab->n;
+                 h++) {
+                e->plist[h][i] = false;
+            }
+            continue;
         }
+        for (h = 0; h < e->tab->n;
+             h++) {
+            char shortid[kShortLen];
+
+            short_of(e->tab->ent[h].wid,
+                     shortid,
+                     sizeof(shortid));
+            e->plist[h][i] =
+                strstr(out, shortid) !=
+                nullptr;
+        }
+    }
+    for (h = 0; h < e->tab->n; h++) {
+        int k;
+
         if (e->pms[h] != 0) {
             continue;
         }
-        for (i = 0; i < n; i++) {
-            if (e->plist[h][i]) {
+        for (k = 0; k < n; k++) {
+            if (e->plist[h][k]) {
                 unsigned long long sub;
 
                 e->pms[h] =
@@ -8943,6 +9162,12 @@ static void step_desc(const ExStep *s,
                        "journalcorrupt "
                        "%d",
                        s->node);
+        break;
+    case ST_PUSH:
+        (void)snprintf(dst, n,
+                       "push %s:%s",
+                       s->push_repo,
+                       s->push_tag);
         break;
     case ST_BENCH:
         (void)snprintf(dst, n,
@@ -12309,6 +12534,41 @@ static bool apply_step(const ExStep *s,
                s->node);
         fflush(stdout);
         return (true);
+    case ST_PUSH: {
+        int i;
+
+        if (c->f->sut == kWeld) {
+            (void)snprintf(
+                why, n,
+                "push is "
+                "concord-only");
+            return (false);
+        }
+        for (i = 0; i < c->r->n;
+             i++) {
+            if (!img_push_net(
+                    &c->r->net, i,
+                    s->push_repo,
+                    s->push_tag,
+                    s->push_rootfs,
+                    s->push_entry)) {
+                (void)snprintf(
+                    why, n,
+                    "push %s:%s node "
+                    "%d failed",
+                    s->push_repo,
+                    s->push_tag, i);
+                return (false);
+            }
+        }
+        printf("suite: step push "
+               "%s:%s %d nodes\n",
+               s->push_repo,
+               s->push_tag,
+               c->r->n);
+        fflush(stdout);
+        return (true);
+    }
     case ST_BENCH:
         if (s->has_ramp) {
             if (kEpCap[s->from_kind]
@@ -13839,10 +14099,20 @@ SuiteVerdict suite_run_file(
             free_file(f);
             return (SUITE_FAIL);
         }
-        // Executor runs fully
-        // isolated: no host footprint.
-        // C scenarios keep the default.
-        net.isolate_all = 1;
+        // Executor isolates by default:
+        // no host footprint, safe for
+        // parallel runs. Isolate off
+        // selects host mode with node 0
+        // on the host (like check/),
+        // which needs no parallel host
+        // runs. C scenarios keep the
+        // default.
+        if (f->sut == kConcord) {
+            net.isolate_all =
+                f->isolate ? 1 : 0;
+        } else {
+            net.isolate_all = 1;
+        }
         if (f->sut == kWeld &&
             !f->has_topic) {
             pid_t pid;
@@ -13876,9 +14146,16 @@ SuiteVerdict suite_run_file(
         } else {
             topic[0] = '\0';
         }
-        setup = run_setup_isolated(
-            &r, &net,
-            (int)f->nodes);
+        if (f->sut == kConcord &&
+            !f->isolate) {
+            setup = run_setup_host(
+                &r, &net,
+                (int)f->nodes);
+        } else {
+            setup = run_setup_isolated(
+                &r, &net,
+                (int)f->nodes);
+        }
         if (setup == RUN_SKIP) {
             int sv = errno;
 

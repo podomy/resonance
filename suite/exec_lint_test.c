@@ -1170,6 +1170,50 @@ static const char kJcorruptBad[] =
     "      mesh_count: 1\n"
     "    timeout_s: 10\n";
 
+// Push with all keys (concord).
+static const char kPush[] =
+    "  - name: d\n"
+    "    do:\n"
+    "      - push:\n"
+    "          repo: concord-hog\n"
+    "          tag: latest\n"
+    "          rootfs: img/rootfs\n"
+    "          entrypoint: /hog\n"
+    "    until:\n"
+    "      mesh_count: 2\n"
+    "    timeout_s: 10\n";
+
+// Push defaults (concord).
+static const char kPushBare[] =
+    "  - name: d\n"
+    "    do:\n"
+    "      - push:\n"
+    "          repo: concord-test\n"
+    "    until:\n"
+    "      mesh_count: 2\n"
+    "    timeout_s: 10\n";
+
+// Push on weld (bad).
+static const char kPushWeld[] =
+    "  - name: d\n"
+    "    do:\n"
+    "      - push:\n"
+    "          repo: concord-hog\n"
+    "    until:\n"
+    "      mesh_count: 1\n"
+    "    timeout_s: 10\n";
+
+// Push bad tag (bad).
+static const char kPushBad[] =
+    "  - name: d\n"
+    "    do:\n"
+    "      - push:\n"
+    "          repo: concord-hog\n"
+    "          tag: has space\n"
+    "    until:\n"
+    "      mesh_count: 2\n"
+    "    timeout_s: 10\n";
+
 // Concord head with bins.
 static const char kCBins[] =
     "name: t\n"
@@ -2273,6 +2317,10 @@ int main(void) {
            kMeshCount);
     doc_ok(kCHead, kJcorrupt,
            kMeshCount);
+    doc_ok(kCHead, kPush,
+           kMeshCount);
+    doc_ok(kCHead, kPushBare,
+           kMeshCount);
     doc_ok(kCBins, kMesh, "");
     doc_ok(kCDiskCap, kMesh, "");
     doc_ok(kCDiskCap0, kMesh, "");
@@ -2426,6 +2474,9 @@ int main(void) {
             "");
     doc_bad(kWHead, kJcorrupt, "");
     doc_bad(kCHead, kJcorruptBad,
+            "");
+    doc_bad(kWHead, kPushWeld, "");
+    doc_bad(kCHead, kPushBad,
             "");
     doc_bad(kCBinsBad, kMesh, "");
     doc_bad(kCBinsEmpty, kMesh,

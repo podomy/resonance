@@ -1940,11 +1940,10 @@ bool concord_update(const char* statedir,
 // Statedir must pass statedir_ok: it
 // reaches a shell. Shortid never
 // reaches the shell: strstr only.
-bool concord_list_has(const char* statedir,
-                      int node,
-                      const char* shortid) {
+bool concord_list_all(const char* statedir,
+                      int node, char* out,
+                      size_t n) {
     char cmd[CMD_LEN];
-    char buf[OUT_LEN];
     const char* exe;
     int m;
 
@@ -1952,7 +1951,7 @@ bool concord_list_has(const char* statedir,
         return (false);
     if (!statedir_ok(statedir))
         return (false);
-    if (shortid == nullptr)
+    if (out == nullptr || n == 0)
         return (false);
     exe = bin_path(nullptr);
     m = snprintf(cmd, sizeof(cmd),
@@ -1962,9 +1961,22 @@ bool concord_list_has(const char* statedir,
                  statedir, node, exe);
     if (m < 0 || m >= (int)sizeof(cmd))
         return (false);
-    if (!capture_bounded(cmd, buf,
-                         sizeof(buf),
-                         CLI_TIMEOUT_S))
+    return (capture_bounded(cmd, out, n,
+                            CLI_TIMEOUT_S));
+}
+
+// concord_list_has reports shortid
+// found in node workload list.
+bool concord_list_has(const char* statedir,
+                      int node,
+                      const char* shortid) {
+    char buf[OUT_LEN];
+
+    if (shortid == nullptr)
+        return (false);
+    if (!concord_list_all(statedir,
+                          node, buf,
+                          sizeof(buf)))
         return (false);
     return (strstr(buf, shortid) !=
             nullptr);

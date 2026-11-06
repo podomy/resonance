@@ -70,26 +70,20 @@ bool sim_net_valid(const SimNet* net);
 bool sim_net_try_for_run(int run_id, SimNet* out);
 
 // sim_run_acquire hands out run ids 1..154
-// for concurrent processes. It locks
-// /var/tmp/resonance-runs.lock with flock,
-// sweeps stale counter.tmp.* temps, reads,
-// bumps, and writes
-// /var/tmp/resonance-runs.counter, then
-// unlocks. Missing or empty reads as 0;
-// over-long lines reject as corrupt; an
-// I/O error fails instead of handing id
-// 1. Cur is range-checked before cur+1,
-// so LONG_MAX never overflows. Publish is
-// temp plus rename at 0600 with a tmp
-// fsync plus best-effort /var/tmp fsync:
-// a crash before the dir fsync may lose
-// the rename. Full (at 154) fails loudly
-// with false plus stderr. Ids feed
-// sim_net_try_for_run. Monotonic: no
-// reuse, so wipe the counter file to reset
-// after runs end. flock frees on close or
-// crash, so stale locks are impossible.
+// for concurrent processes. Each id owns
+// one lock file under /var/tmp; the first
+// id whose lock takes LOCK_EX|LOCK_NB
+// wins. Ids stay unique across live runs
+// and recycle when a run exits, so no
+// manual reset exists. All busy fails
+// loudly with false plus stderr. Ids feed
+// sim_net_try_for_run.
 bool sim_run_acquire(int* out_id);
+
+// sim_run_probe reports a free run id
+// without holding it. Diagnostic only
+// for doctor; never prints.
+bool sim_run_probe(void);
 
 // sim_netns_setup_net creates one netns per extra
 // node using the net prefix.

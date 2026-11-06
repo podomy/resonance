@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "progress.h"
+#include "sim/sim.h"
 #include "suite/exec.h"
 #include "suite/nemesis.h"
 #include "suite/parse.h"
@@ -181,6 +182,9 @@ static void sig_def(void) {
 }
 
 // One file slot in the run window.
+// pdone marks a just done slot whose
+// verdict row still needs one draw;
+// pkind holds 0 pass, 1 fail, 2 skip.
 typedef struct {
     pid_t pid;
     int lg;
@@ -190,6 +194,8 @@ typedef struct {
     const char *base;
     SuiteVerdict v;
     int live;
+    int pdone;
+    int pkind;
     int grp;
     size_t plen;
     int ptrunc;
@@ -335,9 +341,9 @@ static void show_use(FILE *out) {
         out);
     fputs(" Shows live rows with phase",
         out);
-    fputs(" [i/n], 0-based, plus file",
+    fputs(" stage [i/n], 1-based, plus",
         out);
-    fputs(" counts on each row,",
+    fputs(" file counts on each row,",
         out);
     fputs(" tty only, never piped;",
         out);
@@ -409,7 +415,9 @@ static void show_run_use(FILE *out) {
         out);
     fputs(" no orphans. Rows show",
         out);
-    fputs(" phase [i/n], 0-based.",
+    fputs(" phase stage [i/n],",
+        out);
+    fputs(" 1-based.",
         out);
     fputs(" Logs",
         out);
@@ -1089,6 +1097,8 @@ static void slot_init(Slot *s) {
     s->ptrunc = 0;
     s->v = SUITE_FAIL;
     s->live = 0;
+    s->pdone = 0;
+    s->pkind = 1;
     s->grp = 0;
     s->ph_names = nullptr;
     s->ph_total = 0;
@@ -1198,8 +1208,8 @@ static bool frac_parse(
 }
 
 // Stores one frac note beside phase
-// idx; rows show [idx/total] from
-// it. Out of range or malformed
+// idx; rows show stage [idx+1/total]
+// from it. Out of range or malformed
 // lines just miss, never crash.
 static void frac_advance(Slot *s,
     const char *line) {
@@ -1655,7 +1665,10 @@ static void slot_orphan(pid_t pg,
 // Finishes one reaped slot: last
 // pipe bytes, log close, why drain,
 // group orphan kill, verdict from
-// the exit code.
+// the exit code. Marks pdone once so
+// the next progress draw shows one
+// done row; pkind holds 0 pass, 1
+// fail, 2 skip.
 static void finish_slot(Slot *s,
     int st) {
     pid_t pg = -1;
@@ -1693,6 +1706,8 @@ static void finish_slot(Slot *s,
     slot_orphan(pg, grp);
     if (!WIFEXITED(st)) {
         s->v = SUITE_FAIL;
+        s->pdone = 1;
+        s->pkind = 1;
         if (s->why[0] == 0) {
             snprintf(s->why,
                 WhyCap,
@@ -1702,11 +1717,17 @@ static void finish_slot(Slot *s,
     }
     if (WEXITSTATUS(st) == ExOk) {
         s->v = SUITE_PASS;
+        s->pdone = 1;
+        s->pkind = 0;
     } else if (WEXITSTATUS(st)
         == SkipCode) {
         s->v = SUITE_SKIP;
+        s->pdone = 1;
+        s->pkind = 2;
     } else {
         s->v = SUITE_FAIL;
+        s->pdone = 1;
+        s->pkind = 1;
     }
 }
 
@@ -1834,19 +1855,45 @@ static void slot_sig(Slot *s,
 }
 
 // Draws one progress snapshot from
-// the live slots in input order. No
-// bars, no percent, no elapsed, no
-// spinners; rows show phase plus
-// 0-based [idx/total], idx maxing at
-// total-1.
+// the live slots plus just done ones
+// in input order. No bars, no percent,
+// no elapsed, no spinners; live rows
+// show phase plus 1-based stage
+// [idx+1/total] plus frac num/den
+// when den is past zero, idx maxing
+// at total. Done rows carry one
+// verdict each and clear so they show
+// exactly once.
 static void prog_show(Slot *sl,
     int n) {
     ProgView vs[MaxJobs];
+    int at[MaxJobs];
     int m = 0;
     for (int i = 0; i < n; i++) {
         size_t tot = 0;
         size_t idx = 0;
         int known = 0;
+        if (sl[i].pdone != 0) {
+            if (m >= MaxJobs) {
+                break;
+            }
+            vs[m].base =
+                sl[i].base;
+            vs[m].phase =
+                sl[i].phase;
+            vs[m].live = 0;
+            vs[m].ph_idx = 0;
+            vs[m].ph_total = 0;
+            vs[m].fr_num = 0;
+            vs[m].fr_den = 0;
+            vs[m].fr_idx = 0;
+            vs[m].done = 1;
+            vs[m].dkind =
+                sl[i].pkind;
+            at[m] = i;
+            m++;
+            continue;
+        }
         if (sl[i].live == 0) {
             continue;
         }
@@ -1858,6 +1905,14 @@ static void prog_show(Slot *sl,
         vs[m].live = 1;
         vs[m].ph_idx = 0;
         vs[m].ph_total = 0;
+        vs[m].fr_num =
+            sl[i].fr_num;
+        vs[m].fr_den =
+            sl[i].fr_den;
+        vs[m].fr_idx =
+            (long)sl[i].fr_idx;
+        vs[m].done = 0;
+        vs[m].dkind = 0;
         tot = sl[i].ph_total;
         idx = sl[i].ph_idx;
         known = 0;
@@ -1875,9 +1930,15 @@ static void prog_show(Slot *sl,
             vs[m].ph_idx =
                 (int)idx;
         }
+        at[m] = i;
         m++;
     }
     prog_draw(vs, m);
+    for (int j = 0; j < m; j++) {
+        if (vs[j].done != 0) {
+            sl[at[j]].pdone = 0;
+        }
+    }
 }
 
 // Lists failed files with logs;
@@ -2762,8 +2823,9 @@ static void exe_sib(char *dst,
 // with the report; 1 only when a
 // probe itself errors, since
 // missing deps inform, not fail.
-// Lock/counter mirror sim/sim.c
-// RUN_LOCK_PATH/RUN_COUNTER_PATH.
+// Lock path mirrors sim/sim.c
+// RUN_LOCK_PATH; ids probe via
+// sim_run_probe.
 static int do_doctor(void) {
     char conc[PathCap];
     char weld[PathCap];
@@ -2805,12 +2867,9 @@ static int do_doctor(void) {
             "resonance-runs.lock",
             R_OK | W_OK),
         "(missing or denied)");
-    doc_line("run counter",
-        acc_ok("/var/tmp/"
-            "resonance-runs"
-            ".counter",
-            R_OK | W_OK),
-        "(missing or denied)");
+    doc_line("run ids",
+        sim_run_probe(),
+        "(ids exhausted)");
     doc_line("lock dir /var/tmp",
         acc_ok("/var/tmp",
             W_OK | X_OK),

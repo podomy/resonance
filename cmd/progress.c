@@ -11,7 +11,9 @@
 #include "progress.h"
 
 // Max live rows drawn; rest fold
-// into a +N more tail line.
+// into a +N more files tail line.
+// Done rows always show after the
+// tail.
 static constexpr int MaxRows = 8;
 
 // Cap on a full line with inks.
@@ -21,9 +23,19 @@ static constexpr int LineCap = 4096;
 // unknown; rows adapt to real width.
 static constexpr int Fallback = 80;
 
+// Cap on cached rows; matches the
+// MaxJobs window in the parent.
+static constexpr int CacheCap = 64;
+
 // Colors, reset, all ANSI.
 static const char Yellow[] =
     "\x1b[33m";
+static const char Green[] =
+    "\x1b[32m";
+static const char Red[] =
+    "\x1b[31m";
+static const char Dim[] =
+    "\x1b[2m";
 static const char Reset[] =
     "\x1b[0m";
 
@@ -31,6 +43,26 @@ static const char Reset[] =
 // cursor up repaint. Zero on first
 // draw or after a dumb run.
 static int Prev = 0;
+
+// One cached row: copies plus ints
+// for the dirty compare.
+typedef struct {
+    char base[512];
+    char phase[512];
+    int live;
+    int ph_idx;
+    int ph_total;
+    long fr_num;
+    long fr_den;
+    long fr_idx;
+    int done;
+    int dkind;
+} CacheRow;
+
+static CacheRow Cache[64];
+static int CacheN = 0;
+static int CacheTail = 0;
+static int HaveCache = 0;
 
 // True when the progress view may
 // run: tty stdout, no --tap/--json.
@@ -124,14 +156,13 @@ static const char *strip_suite(
 }
 
 // Prints one block line: CR plus
-// erase unless dumb, then text and
-// newline. Text is already cut to
-// width; colors wrap outside.
+// erase unless mute, then text plus
+// newline. Mute prints text plus
+// newline only, never CR. Text is
+// cut to width; colors wrap outside.
 static void put_line(const char *t,
     int dumb) {
-    if (dumb != 0) {
-        fputc('\r', stdout);
-    } else {
+    if (dumb == 0) {
         fputs("\r\x1b[K", stdout);
     }
     fputs(t, stdout);
@@ -141,9 +172,8 @@ static void put_line(const char *t,
 // Cuts the middle of s to width,
 // keeping head and tail visible with
 // ... between; short lines stay whole.
-// Rows keep base start, phase end, and
-// the [i/n] tail; the head keeps its
-// counts head and ETA tail.
+// Rows keep base start, phase end,
+// plus stage [i/n] and frac tails.
 static void mid_cut(char *s, int w) {
     size_t n = strlen(s);
     size_t k = 0;
@@ -181,15 +211,120 @@ static void run_wrap(const char *pl,
         pl, Reset, pl + 7);
 }
 
-// Draws the block: live rows capped,
-// then tail. No head line, no counts,
-// no bars, no percent, no elapsed, no
-// spinners; rows repaint in place by
-// cursor up; dumb or NO_COLOR terms
-// scroll as before with zero escapes
-// at all. Known rows append 0-based
-// [idx/total]; unknown rows read as
-// phase only.
+// Colors a plain ok row: state word
+// green, rest plain. Falls back to
+// plain when too short.
+static void ok_wrap(const char *pl,
+    char *out, size_t n) {
+    if (strlen(pl) < 2) {
+        snprintf(out, n, "%.4000s",
+            pl);
+        return;
+    }
+    snprintf(out, n,
+        "%s%.2s%s%.4000s", Green,
+        pl, Reset, pl + 2);
+}
+
+// Colors a plain not ok row: state
+// word red, rest plain. Falls back to
+// plain when too short.
+static void notok_wrap(
+    const char *pl, char *out,
+    size_t n) {
+    if (strlen(pl) < 6) {
+        snprintf(out, n, "%.4000s",
+            pl);
+        return;
+    }
+    snprintf(out, n,
+        "%s%.6s%s%.4000s", Red,
+        pl, Reset, pl + 6);
+}
+
+// Colors a plain skip row: state
+// word dim, rest plain. Falls back
+// to plain when too short.
+static void skip_wrap(const char *pl,
+    char *out, size_t n) {
+    if (strlen(pl) < 4) {
+        snprintf(out, n, "%.4000s",
+            pl);
+        return;
+    }
+    snprintf(out, n,
+        "%s%.4s%s%.4000s", Dim,
+        pl, Reset, pl + 4);
+}
+
+// Cleans a total: negatives read as
+// unknown zero.
+static int clean_tot(int tot) {
+    if (tot < 0) {
+        return (0);
+    }
+    return (tot);
+}
+
+// Cleans an index into 0..tot when
+// known, else zero.
+static int clean_idx(int idx,
+    int tot) {
+    if (tot <= 0) {
+        return (0);
+    }
+    if (idx < 0) {
+        return (0);
+    }
+    if (idx > tot) {
+        return (tot);
+    }
+    return (idx);
+}
+
+// Cleans a frac den: negatives read
+// as zero, meaning no frac.
+static long clean_den(long den) {
+    if (den < 0) {
+        return (0);
+    }
+    return (den);
+}
+
+// Cleans a frac num into 0..den when
+// den is past zero, else zero.
+static long clean_num(long num,
+    long den) {
+    if (den <= 0) {
+        return (0);
+    }
+    if (num < 0) {
+        return (0);
+    }
+    if (num > den) {
+        return (den);
+    }
+    return (num);
+}
+
+// Draws the block, dirty only: skips
+// all output when live set, phase
+// texts, frac values, and tail count
+// match the prior draw; Prev stays
+// when skipping. Live rows cap, then
+// tail, then done rows once each. No
+// head line, no counts, no bars, no
+// percent, no elapsed, no spinners;
+// rows repaint in place by cursor up;
+// dumb or NO_COLOR terms scroll with
+// text plus newline only, never CR.
+// Known live rows append 1-based
+// stage [idx+1/total] plus frac
+// num/den when den is past zero;
+// unknown live rows read as phase
+// only plus frac when set. Done rows
+// read as ok green, not ok red, skip
+// dim.
 void prog_draw(ProgView *vs, int n) {
     char plain[LineCap];
     char shown[LineCap];
@@ -197,10 +332,26 @@ void prog_draw(ProgView *vs, int n) {
     int mute = no_esc();
     int color = prog_color();
     int live = 0;
+    int ndone = 0;
     int made = 0;
     int cur = 0;
     int tail = 0;
-    for (int i = 0; i < n; i++) {
+    int i = 0;
+    int k = 0;
+    if (vs == nullptr) {
+        n = 0;
+    }
+    if (n < 0) {
+        n = 0;
+    }
+    if (n > CacheCap) {
+        n = CacheCap;
+    }
+    for (i = 0; i < n; i++) {
+        if (vs[i].done != 0) {
+            ndone++;
+            continue;
+        }
         if (vs[i].live == 0) {
             continue;
         }
@@ -211,21 +362,119 @@ void prog_draw(ProgView *vs, int n) {
         made = MaxRows;
     }
     tail = live - made;
-    cur = made;
-    if (tail > 0) {
-        cur++;
+    if (HaveCache != 0 &&
+        CacheN == n &&
+        CacheTail == tail) {
+        int same = 1;
+        for (i = 0; i < n; i++) {
+            const char *bs = nullptr;
+            const char *ds = nullptr;
+            int idx = 0;
+            int tot = 0;
+            long nm = 0;
+            long dn = 0;
+            long fi = 0;
+            int lv = 0;
+            int dnw = 0;
+            int dkw = 0;
+            bs = vs[i].base;
+            if (bs == nullptr) {
+                bs = "";
+            }
+            ds = strip_suite(
+                vs[i].phase);
+            tot = clean_tot(
+                vs[i].ph_total);
+            idx = clean_idx(
+                vs[i].ph_idx, tot);
+            dn = clean_den(
+                vs[i].fr_den);
+            nm = clean_num(
+                vs[i].fr_num, dn);
+            if (dn == 0) {
+                nm = 0;
+                fi = 0;
+            } else {
+                fi = vs[i].fr_idx;
+            }
+            lv = vs[i].live != 0;
+            if (vs[i].done != 0) {
+                dnw = 1;
+                lv = 0;
+            }
+            dkw = vs[i].dkind;
+            if (strcmp(bs,
+                Cache[i].base) != 0) {
+                same = 0;
+                break;
+            }
+            if (strcmp(ds,
+                Cache[i].phase)
+                != 0) {
+                same = 0;
+                break;
+            }
+            if (lv !=
+                Cache[i].live) {
+                same = 0;
+                break;
+            }
+            if (idx !=
+                Cache[i].ph_idx) {
+                same = 0;
+                break;
+            }
+            if (tot !=
+                Cache[i].ph_total) {
+                same = 0;
+                break;
+            }
+            if (nm !=
+                Cache[i].fr_num) {
+                same = 0;
+                break;
+            }
+            if (dn !=
+                Cache[i].fr_den) {
+                same = 0;
+                break;
+            }
+            if (fi !=
+                Cache[i].fr_idx) {
+                same = 0;
+                break;
+            }
+            if (dnw !=
+                Cache[i].done) {
+                same = 0;
+                break;
+            }
+            if (dkw !=
+                Cache[i].dkind) {
+                same = 0;
+                break;
+            }
+        }
+        if (same != 0) {
+            return;
+        }
     }
     if (mute == 0 && Prev > 0) {
         fprintf(stdout, "\x1b[%dA",
             Prev);
     }
     made = 0;
-    for (int i = 0; i < n &&
+    for (i = 0; i < n &&
         made < MaxRows; i++) {
         const char *ds = nullptr;
         const char *bs = nullptr;
         int idx = 0;
         int tot = 0;
+        long nm = 0;
+        long dn = 0;
+        if (vs[i].done != 0) {
+            continue;
+        }
         if (vs[i].live == 0) {
             continue;
         }
@@ -235,28 +484,47 @@ void prog_draw(ProgView *vs, int n) {
         }
         ds = strip_suite(
             vs[i].phase);
-        idx = vs[i].ph_idx;
-        tot = vs[i].ph_total;
-        if (idx < 0) {
-            idx = 0;
-        }
-        if (tot < 0) {
-            tot = 0;
-        }
-        if (tot > 0 && idx > tot) {
-            idx = tot;
-        }
+        tot = clean_tot(
+            vs[i].ph_total);
+        idx = clean_idx(
+            vs[i].ph_idx, tot);
+        dn = clean_den(
+            vs[i].fr_den);
+        nm = clean_num(
+            vs[i].fr_num, dn);
         if (tot > 0) {
-            snprintf(plain,
-                sizeof plain,
-                "RUNNING  %.800s  "
-                "%.800s [%d/%d]", bs,
-                ds, idx, tot);
+            if (dn > 0) {
+                snprintf(plain,
+                    sizeof plain,
+                    "RUNNING  %.400s  "
+                    "%.400s stage "
+                    "[%d/%d] frac "
+                    "%ld/%ld", bs, ds,
+                    idx + 1, tot, nm,
+                    dn);
+            } else {
+                snprintf(plain,
+                    sizeof plain,
+                    "RUNNING  %.800s  "
+                    "%.800s stage "
+                    "[%d/%d]",
+                    bs, ds, idx + 1,
+                    tot);
+            }
         } else {
-            snprintf(plain,
-                sizeof plain,
-                "RUNNING  %.1000s  "
-                "%.1000s", bs, ds);
+            if (dn > 0) {
+                snprintf(plain,
+                    sizeof plain,
+                    "RUNNING  %.800s  "
+                    "%.800s frac "
+                    "%ld/%ld",
+                    bs, ds, nm, dn);
+            } else {
+                snprintf(plain,
+                    sizeof plain,
+                    "RUNNING  %.1000s  "
+                    "%.1000s", bs, ds);
+            }
         }
         mid_cut(plain, width);
         if (color != 0) {
@@ -273,19 +541,132 @@ void prog_draw(ProgView *vs, int n) {
     if (tail > 0) {
         snprintf(plain,
             sizeof plain,
-            "... +%d more", tail);
+            "... +%d more files",
+            tail);
         mid_cut(plain, width);
         snprintf(shown,
             sizeof shown, "%.4000s",
             plain);
         put_line(shown, mute);
     }
+    for (i = 0; i < n; i++) {
+        const char *ds = nullptr;
+        const char *bs = nullptr;
+        int kind = 0;
+        if (vs[i].done == 0) {
+            continue;
+        }
+        bs = vs[i].base;
+        if (bs == nullptr) {
+            bs = "";
+        }
+        ds = strip_suite(
+            vs[i].phase);
+        kind = vs[i].dkind;
+        if (kind == 0) {
+            snprintf(plain,
+                sizeof plain,
+                "ok  %.1000s  "
+                "%.1000s", bs, ds);
+        } else if (kind == 2) {
+            snprintf(plain,
+                sizeof plain,
+                "skip  %.1000s  "
+                "%.1000s", bs, ds);
+        } else {
+            snprintf(plain,
+                sizeof plain,
+                "not ok  %.800s  "
+                "%.800s", bs, ds);
+        }
+        mid_cut(plain, width);
+        if (color != 0) {
+            if (kind == 0) {
+                ok_wrap(plain,
+                    shown,
+                    sizeof shown);
+            } else if (
+                kind == 2) {
+                skip_wrap(plain,
+                    shown,
+                    sizeof shown);
+            } else {
+                notok_wrap(plain,
+                    shown,
+                    sizeof shown);
+            }
+        } else {
+            snprintf(shown,
+                sizeof shown,
+                "%.4000s", plain);
+        }
+        put_line(shown, mute);
+    }
+    cur = made;
+    if (tail > 0) {
+        cur++;
+    }
+    cur += ndone;
     if (mute == 0) {
-        for (int k = cur; k < Prev;
+        for (k = cur; k < Prev;
             k++) {
             put_line("", mute);
         }
         Prev = cur;
     }
+    for (i = 0; i < n; i++) {
+        const char *bs = nullptr;
+        const char *ds = nullptr;
+        int idx = 0;
+        int tot = 0;
+        long nm = 0;
+        long dn = 0;
+        long fi = 0;
+        int lv = 0;
+        int dnw = 0;
+        bs = vs[i].base;
+        if (bs == nullptr) {
+            bs = "";
+        }
+        ds = strip_suite(
+            vs[i].phase);
+        tot = clean_tot(
+            vs[i].ph_total);
+        idx = clean_idx(
+            vs[i].ph_idx, tot);
+        dn = clean_den(
+            vs[i].fr_den);
+        nm = clean_num(
+            vs[i].fr_num, dn);
+        if (dn == 0) {
+            nm = 0;
+            fi = 0;
+        } else {
+            fi = vs[i].fr_idx;
+        }
+        lv = vs[i].live != 0;
+        if (vs[i].done != 0) {
+            dnw = 1;
+            lv = 0;
+        }
+        snprintf(Cache[i].base,
+            sizeof Cache[i].base,
+            "%.500s", bs);
+        snprintf(Cache[i].phase,
+            sizeof Cache[i].phase,
+            "%.500s", ds);
+        Cache[i].live = lv;
+        Cache[i].ph_idx = idx;
+        Cache[i].ph_total = tot;
+        Cache[i].fr_num = nm;
+        Cache[i].fr_den = dn;
+        Cache[i].fr_idx = fi;
+        Cache[i].done = dnw;
+        Cache[i].dkind =
+            vs[i].dkind;
+    }
+    CacheN = n;
+    CacheTail = tail;
+    HaveCache = 1;
     fflush(stdout);
 }

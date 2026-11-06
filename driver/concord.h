@@ -116,6 +116,18 @@ bool concord_update(const char* statedir,
                     int node, const char* wid,
                     const char* image);
 
+// concord_list_all dumps node workload
+// list into out: 1 on success. Single
+// CLI call; callers match shortids
+// in-process instead of one fork per id.
+// Same 16384 cap and 10 s bound as
+// list_has; longer lists truncate and
+// may miss, as in check/. Out needs at
+// least 16384 bytes.
+bool concord_list_all(const char* statedir,
+                      int node, char* out,
+                      size_t n);
+
 // concord_list_has reports shortid
 // found in node workload list.
 // 8-char prefix may collide: unique

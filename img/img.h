@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include "sim/sim.h"
+
 static constexpr int IMG_PORT = 8444;
 
 // Test image supply for scenarios that need running
@@ -28,8 +30,26 @@ static constexpr int IMG_PORT = 8444;
 
 // img_push tars rootfs_dir and pushes it as repo:tag
 // into node i's registry. Returns 1 on success.
+// Entrypoint is always /probe: check/ only.
+// New code uses img_push_net instead.
 bool img_push(int node, const char* repo, const char* tag,
               const char* rootfs);
+
+// img_push_net is img_push for an explicit
+// network: node 0 runs in the host netns
+// only on the shared path, else in its own
+// namespace like every other node. The
+// entrypoint runs when the image starts;
+// /hog serves the memory-pressure tests.
+// Rootfs is read from the shared
+// filesystem, so no byte crosses the
+// sim mesh. Returns 1 on success.
+bool img_push_net(const SimNet* net,
+                  int node,
+                  const char* repo,
+                  const char* tag,
+                  const char* rootfs,
+                  const char* entry);
 
 // img_present reports 1 if node i's registry serves the
 // manifest for repo:tag. Single shot; no retries.

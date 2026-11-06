@@ -475,6 +475,21 @@ invalid JSON on next scan. Origin need: journal.corrupt.
   - journalcorrupt:
       node: 0
 
+push. Scope: concord-only. Mapping with optional repo, tag,
+rootfs, plus entrypoint. Defaults: repo concord-test, tag latest,
+rootfs img/rootfs, entrypoint /probe. repo and tag use alnum
+plus _ . - only, entrypoint must start with slash. It tars the
+rootfs dir and PUTs it as repo:tag into every node's registry
+from inside each node's own namespace, so no byte crosses the
+simulated mesh; a later submit of localhost:8444/<repo>:<tag>
+pulls locally on each node. Origin need: image.push.
+
+  - push:
+      repo: concord-hog
+      tag: latest
+      rootfs: img/rootfs
+      entrypoint: /hog
+
 Conditions (until or sustain)
 
 Conditions read the system: log grep, workload lists, journal
@@ -647,7 +662,7 @@ skip unknown verbs it cannot know. Declare only what the file uses:
 extra needs narrow where the file can run for no reason, missing
 needs hide as skips. Known verbs:
 
-concord (21 verbs):
+concord (23 verbs):
 
   workload.submit
   workload.list
@@ -661,6 +676,7 @@ concord (21 verbs):
   journal.image
   journal.corrupt
   journal.has
+  image.push
   disk.fill
   disk.readonly
   net.qos
@@ -670,8 +686,9 @@ concord (21 verbs):
   spawn.anchor
   spawn.skew
   spawn.bins
+  metrics.scrape
 
-weld (12 verbs):
+weld (13 verbs):
 
   weld.pub
   weld.echo
@@ -685,6 +702,7 @@ weld (12 verbs):
   spawn.bins
   weld.log
   ros.log
+  metrics.scrape
 
 Note: restart.fresh and restart.preserve are weld-only verbs now.
 Concord restart steps need no verb; declare the spawn or disk or
@@ -746,7 +764,7 @@ fails lint and runtime. Counts outside 1..100 fail lint loudly.
 
 Step verbs. drop, heal, kill, restart, move, submit, stop, pub,
 benchmark, ros_pub, slow, update, replay, diskfill, diskreadonly,
-journalcorrupt.
+journalcorrupt, push.
 Unknown step keys fail lint. Fault keys never appear on heal.
 replay is weld-only; diskfill, diskreadonly, and journalcorrupt
 are concord-only; update is concord-only; slow and the drop fault
@@ -1013,6 +1031,7 @@ suite/exec.c:7165-7202.
   ros-log-contains wants ros.log.
   journal-has wants journal.has.
   workload-running wants workload.list.
+  prometheus-scrape wants metrics.scrape.
 
 Old needs keep meaning; new verbs only add
 names. Declare only what the file uses.

@@ -75,19 +75,15 @@ rmdir step.
 cgroup root - per-run cgroup root, default path without
 suffix. Made by same place step. Removed by same rmdir step.
 
-/var/tmp/resonance-runs.lock - allocator lock guarding
-counter with flock. Made by acquire open create 0600 plus
-flock exclusive. No clean needed; flock frees on close or
-crash so stale locks are impossible.
+/var/tmp/resonance-runs.lock - allocator scan mutex with
+flock. Made by acquire open create 0600 plus flock exclusive.
+No clean needed; held only across scans.
 
-/var/tmp/resonance-runs.counter - last handed run id as
-decimal text. Made by acquire temp plus rename at 0600 plus
-fsyncs. Removed by manual wipe to reset monotonic ids; full
-at 154 fails loudly.
-
-/var/tmp/resonance-runs.counter.tmp plus pid - allocator
-publish temp per writer. Made by same acquire step. Removed
-by auto sweep under lock plus unlink on all error paths.
+/var/tmp/resonance-run-N.lock - one lock file per run id,
+1..154. Made by acquire open create 0600 plus flock exclusive
+nonblocking on the first free id. Held open till the run
+process exits, so ids recycle on exit and crash alike with
+no manual reset. All busy fails loudly.
 
 /var/tmp/resonance-rsuite-XXXXXX - per-run rsuite log dir
 from mkdtemp, one per bin/rsuite run call. Made by log dir

@@ -37,7 +37,6 @@ jobs:
           make bin/rsuite bin/parse_test bin/net_test bin/nemesis_test bin/exec_lint_test
           make bin/driver_concord_test bin/driver_weld_test bin/run_sample_test bin/sim_net_test bin/tun_stat_test bin/prog_test
           make bin/heap_test bin/node_test bin/world_test bin/determinism bin/mcast_test bin/tun_netns bin/tun_drop
-          make bin/concord_two bin/concord_three bin/concord_scale
 
       - name: Run unit tests
         run: ./bin/parse_test && ./bin/net_test && ./bin/nemesis_test && ./bin/exec_lint_test && ./bin/driver_concord_test && ./bin/driver_weld_test && ./bin/run_sample_test && ./bin/sim_net_test && ./bin/tun_stat_test && ./bin/prog_test

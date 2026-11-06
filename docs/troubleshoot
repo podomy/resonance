@@ -158,26 +158,24 @@ with post-mortem:
 
 sudo rm -rf /var/tmp/resonance-fail /var/tmp/resonance-*-fail
 
-4. Allocator counter plus temps. Ids are
-monotonic with no reuse; wipe the
-counter file to reset after runs end
-(sim/sim.h:88-90). Lock file needs no
-clean: flock frees on close or crash so
-stale locks are impossible
-(sim/sim.h:90-91). Publish temp is
-<counter>.tmp.<pid> swept under lock
-plus unlinked on all errors
-(sim/sim.c:524-556,695-739). By hand,
-code-read only:
+4. Allocator lock files. Ids recycle
+when their run exits: the winner fd is
+held open till process exit, so crash
+and kill both free the id with the fd.
+No manual reset exists. If every id
+reports busy, live runs hold them; wait
+or reboot. A stale
+/var/tmp/resonance-runs.counter from an
+older build is inert; remove it once by
+hand:
 
 sudo rm -f /var/tmp/resonance-runs.counter
 sudo rm -f /var/tmp/resonance-runs.counter.tmp.*
 
-Leave /var/tmp/resonance-runs.lock in
-place. Doctor checks lock plus counter
-R plus W and lock dir W plus X
-(cmd/main.c:2501-2515); MISSING after
-wipe is normal until next acquire.
+Leave /var/tmp/resonance-runs.lock and
+/var/tmp/resonance-run-N.lock files in
+place. Doctor checks lock R plus W, a
+free run id, and lock dir W plus X.
 
 5. Rsuite log dirs. Fresh per-run dir
 under /var/tmp via mkdtemp

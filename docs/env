@@ -132,8 +132,8 @@ below.
 TMPDIR is ignored. No getter for it exists in the repo. Paths are
 fixed: STATEDIR is /var/tmp/resonance, rsuite logs default to
 /var/tmp/resonance-rsuite-XXXXXX via mkdtemp, run lock plus counter
-live at /var/tmp/resonance-runs.lock and its counter sibling
-/var/tmp/resonance-runs.counter, and doctor probes /var/tmp.
+live at /var/tmp/resonance-runs.lock plus per-id locks at
+/var/tmp/resonance-run-N.lock, and doctor probes /var/tmp.
 Setting TMPDIR changes nothing. Note: /tmp appears only in a header
 comment warning that the /tmp tmpfs is nodev and cannot hold device
 nodes.

@@ -25,7 +25,7 @@ Where to look per category:
 Each entry below names a symptom, what it means, and the
 fix. Open docs/yaml at the named section for the full rule.
 
-Top keys: exactly 11 allowed, unknown fails - file has a
+Top keys: exactly 13 allowed, unknown fails - file has a
 key outside the schema. Fix: remove or rename the key; see
 Top-level keys in docs/yaml.
 
@@ -51,13 +51,15 @@ or sustain - phase list is empty, doubled, or missing its
 check. Fix: fix the phase list; see docs/yaml.
 
 steps: exactly one verb per map, only drop, heal, kill,
-restart, move, submit, stop, pub exist; node ints are
+restart, move, submit, stop, pub, benchmark, ros_pub, slow,
+update, replay, diskfill, diskreadonly, journalcorrupt, push exist; node ints are
 0..nodes-1; image, flags, topic shapes checked - a step
 names a bad verb, node, or string shape. Fix: fix the step;
 see docs/yaml.
 
 conditions: exactly one of peers, marker, present, absent,
-observed, assigned, mesh_count; arity and SUT scope differ
+observed, assigned, mesh_count, agree, assigned_on, epoch,
+image; arity and SUT scope differ
 per condition - a condition names the wrong key or scope.
 Fix: fix the condition; see docs/yaml plus the oracle
 table.
@@ -121,11 +123,12 @@ Each entry below names a symptom, its cause, and the fix.
 Failed runs call forensics before wipe, so read the saved
 copies, not the wiped statedir.
 
-run acquire failed, with sim counter read, corrupt, or
-exhausted text on stderr - lock, I/O, corrupt counter, or
-full at 154. Fix: inspect
-/var/tmp/resonance-runs.counter, wipe it to reset monotonic
-ids after runs end.
+run acquire failed, with sim lock or
+exhausted text on stderr - lock I/O or
+all 154 ids held by live runs. Fix: wait
+for live runs to exit, which frees their
+ids with their lock fds; a reboot also
+clears every lock.
 
 bad run id with a number - id below 0 or above 154 would
 wrap the octet or alias tun names. Fix: pass 0..154 only; 0
@@ -260,8 +263,8 @@ missing) or ERROR on fork or wait failure; bin/concord sibling of
 rsuite OK on exec else MISSING (not built); bin/weld same; docker
 daemon via shell docker info MISSING (daemon down) or ERROR on probe
 failure; run lock read plus write on /var/tmp/resonance-runs.lock
-else MISSING (missing or denied); run counter same on
-/var/tmp/resonance-runs.counter; lock dir /var/tmp write plus exec
+else MISSING (missing or denied); run ids reports a free
+id else MISSING (ids exhausted); lock dir /var/tmp write plus exec
 else MISSING (not writable). Lock and counter paths mirror the sim
 allocator paths.
 

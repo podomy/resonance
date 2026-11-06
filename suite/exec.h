@@ -398,7 +398,15 @@
 // state: on|off}, journalcorrupt:
 // {node}. They call
 // concord_disk_fill, _disk_readonly,
-// and _journal_corrupt exactly.
+// and _journal_corrupt exactly. The
+// image supply step is concord-only
+// too: push: {repo?, tag?, rootfs?,
+// entrypoint?}, all optional, default
+// concord-test, latest, img/rootfs,
+// /probe. It tars the rootfs and PUTs
+// it as repo:tag into every node's
+// registry via img_push_net, so a
+// later submit can pull locally.
 
 // Query conditions (concord-only):
 // agree: {workload?} holds when all

@@ -32,25 +32,7 @@ WORLD_TARGETS = bin/world_test \
     bin/driver_concord_test bin/driver_weld_test \
     bin/run_sample_test bin/sim_net_test \
     bin/tun_stat_test \
-    bin/cable bin/mcast bin/concord_two \
-    bin/concord_partition bin/concord_three \
-    bin/concord_scale bin/concord_scale_churn \
-    bin/concord_workload bin/concord_bulk \
-    bin/concord_spam bin/concord_slow \
-    bin/concord_restart bin/concord_rotate \
-    bin/concord_mobile bin/concord_divergent \
-    bin/concord_killmidsync bin/concord_stop \
-    bin/concord_minority_stop bin/concord_flap \
-    bin/concord_killisolated \
-    bin/concord_splitbrain bin/concord_duel \
-    bin/concord_failover bin/concord_orphan \
-    bin/concord_orphan_partition \
-    bin/concord_orphan_stop \
-    bin/concord_cursor_resume \
-    bin/concord_catchup bin/concord_reinstall \
-    bin/concord_anchor bin/concord_nomem \
-    bin/concord_update bin/concord_preempt \
-    bin/concord_pinalarm bin/concord_img
+    bin/cable bin/mcast
 $(WORLD_TARGETS): CFLAGS += -Wno-pedantic
 
 # TEST_BINS lists every unprivileged test binary
@@ -118,7 +100,7 @@ SUITE_SRCS = suite/parse.c suite/exec.c suite/nemesis.c
 
 RSUITE_SRCS = cmd/main.c cmd/progress.c
 
-bin/rsuite: $(RSUITE_SRCS) $(SUITE_SRCS) $(SIM_SRCS) $(RUN_SRCS) $(DRIVER_SRCS) | bin
+bin/rsuite: $(RSUITE_SRCS) $(SUITE_SRCS) $(SIM_SRCS) $(RUN_SRCS) $(DRIVER_SRCS) img/img.c | bin
 	$(CC) $(CFLAGS) -I. -o $@ $^
 
 bin/parse_test: suite/parse_test.c suite/parse.c | bin
@@ -130,7 +112,7 @@ bin/net_test: suite/net_test.c math/math.c world/world.c node/node.c | bin
 bin/nemesis_test: suite/nemesis_test.c suite/nemesis.c suite/parse.c | bin
 	$(CC) $(CFLAGS) -I. -o $@ $^
 
-bin/exec_lint_test: suite/exec_lint_test.c $(SUITE_SRCS) $(SIM_SRCS) $(RUN_SRCS) $(DRIVER_SRCS) | bin
+bin/exec_lint_test: suite/exec_lint_test.c $(SUITE_SRCS) $(SIM_SRCS) $(RUN_SRCS) $(DRIVER_SRCS) img/img.c | bin
 	$(CC) $(CFLAGS) -I. -o $@ $^
 
 bin/fuzzer: suite/fuzzer.c suite/parse.c | bin
@@ -170,9 +152,11 @@ IMG_SRCS = img/img.c
 
 # img-build compiles the test image binaries into
 # img/rootfs. Fully offline: local static builds only.
+# hog is the memory-pressure half next to probe: it holds
+# CONCORD_MEM_LIMIT_MB of resident pages for scheduler tests.
 img-build:
 	mkdir -p img/rootfs
-	cd img && CGO_ENABLED=0 go build -o rootfs/probe ./probe.go && CGO_ENABLED=0 go build -o rootfs/probe-check ./check.go
+	cd img && CGO_ENABLED=0 go build -o rootfs/probe ./probe.go && CGO_ENABLED=0 go build -o rootfs/probe-check ./check.go && CGO_ENABLED=0 go build -o rootfs/hog ./hog.go
 
 # bin/cable and bin/mcast are manual-only. They use
 # fixed global names (netns cable, tun0/tun1) and need
@@ -183,107 +167,6 @@ bin/cable: check/cable.c $(SIM_SRCS) | bin
 	$(CC) $(CFLAGS) -o $@ $^
 
 bin/mcast: check/mcast.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_two: check/concord_two.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_partition: check/concord_partition.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_three: check/concord_three.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_scale: check/concord_scale.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_scale_churn: check/concord_scale_churn.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_workload: check/concord_workload.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_bulk: check/concord_bulk.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_spam: check/concord_spam.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_slow: check/concord_slow.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_restart: check/concord_restart.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_rotate: check/concord_rotate.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_mobile: check/concord_mobile.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_divergent: check/concord_divergent.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_killmidsync: check/concord_killmidsync.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_stop: check/concord_stop.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_minority_stop: check/concord_minority_stop.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_flap: check/concord_flap.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_killisolated: check/concord_killisolated.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_splitbrain: check/concord_splitbrain.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_duel: check/concord_duel.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_failover: check/concord_failover.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_orphan: check/concord_orphan.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_orphan_partition: check/concord_orphan_partition.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_orphan_stop: check/concord_orphan_stop.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_cursor_resume: check/concord_cursor_resume.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_catchup: check/concord_catchup.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_reinstall: check/concord_reinstall.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_anchor: check/concord_anchor.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_nomem: check/concord_nomem.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_update: check/concord_update.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_preempt: check/concord_preempt.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-bin/concord_pinalarm: check/concord_pinalarm.c $(SIM_SRCS) | bin
-	$(CC) $(CFLAGS) -o $@ $^
-
-# concord_img needs the test image binaries at run
-# time; img-build keeps img/rootfs stocked.
-bin/concord_img: check/concord_img.c $(SIM_SRCS) $(IMG_SRCS) | bin img-build
 	$(CC) $(CFLAGS) -o $@ $^
 
 # test is the single unprivileged entry point.

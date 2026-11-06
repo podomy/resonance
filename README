@@ -13,8 +13,8 @@ SUT-specific binary ships with the harness.
 Scope
 
   Concord reference matrix is consolidated, not expanding. INVARIANTS
-  names the pinned behaviors and check/ holds their frozen
-  enforcement. The mesh stays the only channel between nodes.
+  names the pinned behaviors and the Concord rsuite holds their
+  scenarios. The mesh stays the only channel between nodes.
   All work goes inward:
   correctness, reliability, verification, and optimization of what
   is already here. No new surface, fixes only.

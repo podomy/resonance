@@ -1,7 +1,6 @@
-# update mirrors
-# check/concord_update.c: submit,
-# move the image, assert converged
-# image, then stop and go absent.
+# update: submit, move the
+# image, assert converged image,
+# then stop and go absent.
 name: update
 version: 1
 sut: concord

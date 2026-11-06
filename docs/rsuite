@@ -157,32 +157,54 @@ JSON never colors. Verified live with --json on a missing file.
 
 Progress rows
 
-Live rows are a human display only. They appear when stdout is a tty
-and neither machine flag is set. Piped output never draws rows, so
-TAP bytes stay stable for scripts. If rows vanish in your logs, that
-is expected: the run still tested everything.
+Live rows plus one-shot done rows are a human display only. They
+appear when stdout is a tty and neither machine flag is set. Piped
+output never draws rows, so TAP bytes stay stable for scripts. If
+rows vanish in your logs, that is expected: the run still tested
+everything.
+
+The view redraws dirty only: when the live set, phase texts, frac
+values, and tail count match the prior draw, the tick emits nothing
+and the cursor stays. No new output appears in TAP, JSON, or piped
+runs.
 
 Each live row reads:
 
-  RUNNING  <base>  <phase> [i/n]
+  RUNNING  <base>  <phase> stage [i/n] frac f/d
 
 Base is the file name after the last slash. Phase is the last suite:
-line seen, with the suite: prefix stripped. Index pair is 0-based
-phase index over phase total, from suite: phase and suite: frac scan
-lines. Unknown phase (count, blank name, unreadable file) prints
-phase only with no tail. State word prints yellow on color terms.
+line seen, with the suite: prefix stripped. Stage pair is 1-based
+phase index over phase total, from suite: phase scan lines, so
+stage [1/n] is the first phase and stage [n/n] is the last.
+Unknown phase (count, blank name, unreadable file) prints phase
+only with no tail. When the frac den is past zero, the row appends
+frac num over den as frac f/d with a single space, showing nodes
+meeting or elapsed for long phases. State word prints yellow on
+color terms.
 
-At most 8 rows draw. The rest fold into one tail line:
+Just done files show once on the next draw, then clear:
 
-  ... +N more
+  ok  <base>  <phase>
+  not ok  <base>  <phase>
+  skip  <base>  <phase>
+
+Pass prints ok in green, fail prints not ok in red, skip prints skip
+dim on color terms, plain otherwise. Done rows always show after the
+tail, never fold. Final TAP and JSON result lines plus summary bytes
+stay identical.
+
+At most 8 live rows draw. The rest fold into one tail line:
+
+  ... +N more files
 
 Long lines cut the middle to terminal width with ... between,
-keeping head and tail. Rows repaint in place with cursor-up codes.
-Dumb terms (TERM is dumb) or any NO_COLOR value scroll instead with
-zero escape codes at all. There is no head line, no counts, no bars,
-no percent, no elapsed, and no spinners. After the loop a newline
-prints, then result lines, then the summary, then (progress mode
-only) a failure list.
+keeping head and tail. Rows repaint in place with cursor-up codes,
+clearing shrink with blank lines. Dumb terms (TERM is dumb) or any
+NO_COLOR value scroll instead with zero escape codes at all,
+printing text plus newline only and never CR. There is no head line,
+no counts, no bars, no percent, no elapsed, and no spinners. After
+the loop a newline prints, then result lines, then the summary, then
+(progress mode only) a failure list.
 
 Log dir layout
 
@@ -255,7 +277,7 @@ hint, or what: ERROR plus hint. Verified live:
   bin-dir/weld (needs exec)
   docker daemon (probes docker info)
   run lock (needs read plus write)
-  run counter (needs read plus write)
+  run ids (a free id, else exhausted)
   lock dir /var/tmp (needs write plus
   exec)
 

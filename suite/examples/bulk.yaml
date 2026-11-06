@@ -1,7 +1,6 @@
-# bulk-count mirrors
-# check/concord_bulk.c: three paced
-# submits under one base name, then
-# whole-set present.
+# bulk-count: three paced
+# submits under one base name,
+# then whole-set present.
 name: bulk-count
 version: 1
 sut: concord

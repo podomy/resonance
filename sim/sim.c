@@ -76,11 +76,20 @@ static_assert(PATH_LEN >=
 static_assert(PATH_LEN >=
               sizeof("/var/run/netns/resonance154_99"));
 
-// RUN_LOCK_PATH guards the run counter with
-// flock. RUN_COUNTER_PATH holds the last
-// handed id as decimal text.
+// RUN_LOCK_PATH serializes allocator
+// scans with flock. RUN_ID_LOCK_FMT
+// names one lock file per run id;
+// the first id whose lock takes
+// LOCK_EX|LOCK_NB wins.
 #define RUN_LOCK_PATH "/var/tmp/resonance-runs.lock"
-#define RUN_COUNTER_PATH "/var/tmp/resonance-runs.counter"
+#define RUN_ID_LOCK_FMT "/var/tmp/resonance-run-%d.lock"
+
+// HeldRunLock is the won id lock,
+// kept open till process exit so the
+// id stays unique across live runs.
+// No explicit release: exit and crash
+// both free it with the fd.
+static int HeldRunLock = -1;
 
 // run executes cmd via system.
 static int run(const char* cmd) {
@@ -521,112 +530,23 @@ bool sim_net_try_for_run(int run_id, SimNet* out) {
     return (true);
 }
 
-// counter_tmp_sweep deletes stale acquire
-// temps (counter.tmp.*). Best effort:
-// ignores all errors. Call while holding
-// the lock, so no live temp is removed.
-static void counter_tmp_sweep(void) {
-    DIR* d;
-
-    d = opendir("/var/tmp");
-    if (d == nullptr)
-        return;
-    for (;;) {
-        struct dirent* e;
-        char path[160];
-        int k;
-
-        e = readdir(d);
-        if (e == nullptr)
-            break;
-        if (strncmp(e->d_name,
-                    "resonance-runs."
-                    "counter.tmp.",
-                    27) != 0)
-            continue;
-        k = snprintf(path, sizeof(path),
-                     "/var/tmp/%s",
-                     e->d_name);
-        if (k < 0 ||
-            k >= (int)sizeof(path))
-            continue;
-        unlink(path);
-    }
-    closedir(d);
-}
-
-// dir_fsync fsyncs dir best effort, so a
-// fresh rename lasts past a crash.
-// Ignores errors: safety stays limited
-// to the tmp fsync plus this attempt;
-// a crash before this may lose rename.
-static void dir_fsync(const char* dir) {
-    int fd;
-
-    fd = open(dir,
-              O_RDONLY | O_DIRECTORY |
-                  O_CLOEXEC);
-    if (fd < 0)
-        return;
-    fsync(fd);
-    close(fd);
-}
-
-// counter_parse reads the last handed id
-// from buf. Strict decimal plus trailing
-// blank only; false on garbage, so a
-// corrupt file never aliases live runs.
-static bool counter_parse(const char* buf,
-                          long* out) {
-    char* end;
-    long v;
-
-    if (buf == nullptr || out == nullptr)
-        return (false);
-    errno = 0;
-    v = strtol(buf, &end, 10);
-    if (end == buf)
-        return (false);
-    while (*end == ' ' || *end == '\t' ||
-           *end == '\n' || *end == '\r')
-        end++;
-    if (*end != '\0')
-        return (false);
-    if (errno != 0)
-        return (false);
-    *out = v;
-    return (true);
-}
-
 // sim_run_acquire hands out run ids 1..154
-// for concurrent processes. It locks
-// RUN_LOCK_PATH with flock, sweeps stale
-// counter.tmp.* temps, reads, bumps, and
-// writes RUN_COUNTER_PATH, then unlocks.
-// Missing or empty reads as 0; over-long
-// lines reject as corrupt; an I/O error
-// fails instead of handing id 1. Cur is
-// range-checked before cur+1, so LONG_MAX
-// never overflows. Publish is temp plus
-// rename at 0600 with a tmp fsync plus a
-// best-effort /var/tmp fsync: a crash
-// before the dir fsync may still lose the
-// rename. Full (at 154) fails loudly with
+// for concurrent processes. Each id owns
+// one lock file; the first id whose lock
+// takes LOCK_EX|LOCK_NB wins, so ids stay
+// unique across live runs and recycle the
+// moment a run exits. The winner fd stays
+// open till process exit, so no explicit
+// release exists and a crash frees its id
+// with the fd. RUN_LOCK_PATH serializes
+// scans only. All busy fails loudly with
 // false plus stderr. Ids feed
-// sim_net_try_for_run. Monotonic: no
-// reuse, so wipe the counter file to reset
-// after runs end. flock frees on close or
-// crash, so stale locks are impossible.
+// sim_net_try_for_run.
 bool sim_run_acquire(int* out_id) {
-    char buf[32];
-    char wbuf[32];
-    char tmp[64];
-    long cur;
-    long nxt;
+    char path[64];
     int lockfd;
-    int tmpfd;
+    int id;
     int m;
-    FILE* fp;
 
     if (out_id == nullptr)
         return (false);
@@ -635,115 +555,94 @@ bool sim_run_acquire(int* out_id) {
     if (lockfd < 0)
         return (false);
     cloexec_fd(lockfd);
-    if (fchmod(lockfd, 0600) != 0) {
-        // Best effort: old perms stay.
-    }
     if (flock(lockfd, LOCK_EX) != 0) {
         close(lockfd);
         return (false);
     }
-    counter_tmp_sweep();
-    cur = 0;
-    fp = fopen(RUN_COUNTER_PATH, "re");
-    if (fp != nullptr) {
-        bool blank;
-        bool trunc;
-        bool ioerr;
-        int c;
+    for (id = RUN_ID_MIN;
+         id <= RUN_ID_MAX; id++) {
+        int fd;
 
-        blank = fgets(buf, sizeof(buf),
-                      fp) == nullptr;
-        ioerr = ferror(fp) != 0;
-        trunc = false;
-        if (!blank &&
-            strchr(buf, '\n') ==
-                nullptr) {
-            c = fgetc(fp);
-            if (c != EOF)
-                trunc = true;
-        }
-        fclose(fp);
-        if (ioerr) {
-            fprintf(stderr, "sim: run "
-                    "counter read error\n");
+        m = snprintf(path, sizeof(path),
+                     RUN_ID_LOCK_FMT, id);
+        if (m < 0 ||
+            m >= (int)sizeof(path)) {
             close(lockfd);
             return (false);
         }
-        if (trunc) {
-            fprintf(stderr, "sim: run "
-                    "counter corrupt\n");
-            close(lockfd);
-            return (false);
+        fd = open(path,
+                  O_RDWR | O_CREAT, 0600);
+        if (fd < 0)
+            continue;
+        cloexec_fd(fd);
+        if (flock(fd, LOCK_EX |
+                      LOCK_NB) != 0) {
+            close(fd);
+            continue;
         }
-        if (!blank &&
-            !counter_parse(buf, &cur)) {
-            fprintf(stderr, "sim: run "
-                    "counter corrupt\n");
-            close(lockfd);
-            return (false);
-        }
-    }
-    if (cur < RUN_ID_MIN - 1 ||
-        cur >= RUN_ID_MAX) {
-        fprintf(stderr, "sim: run ids "
-                "exhausted (max %d)\n",
-                RUN_ID_MAX);
+        if (HeldRunLock >= 0)
+            close(HeldRunLock);
+        HeldRunLock = fd;
         close(lockfd);
-        return (false);
+        *out_id = id;
+        return (true);
     }
-    nxt = cur + 1;
-    m = snprintf(tmp, sizeof(tmp),
-                 "%s.tmp.%d",
-                 RUN_COUNTER_PATH,
-                 (int)getpid());
-    if (m < 0 || m >= (int)sizeof(tmp)) {
-        close(lockfd);
-        return (false);
-    }
-    tmpfd = open(tmp,
-                 O_WRONLY | O_CREAT | O_TRUNC,
-                 0600);
-    if (tmpfd < 0) {
-        close(lockfd);
-        return (false);
-    }
-    cloexec_fd(tmpfd);
-    m = snprintf(wbuf, sizeof(wbuf), "%ld\n",
-                 nxt);
-    if (m < 0 || m >= (int)sizeof(wbuf)) {
-        close(tmpfd);
-        unlink(tmp);
-        close(lockfd);
-        return (false);
-    }
-    if (write(tmpfd, wbuf, (size_t)m) !=
-        (ssize_t)m) {
-        close(tmpfd);
-        unlink(tmp);
-        close(lockfd);
-        return (false);
-    }
-    if (fsync(tmpfd) != 0) {
-        close(tmpfd);
-        unlink(tmp);
-        close(lockfd);
-        return (false);
-    }
-    if (close(tmpfd) != 0) {
-        unlink(tmp);
-        close(lockfd);
-        return (false);
-    }
-    if (rename(tmp, RUN_COUNTER_PATH) != 0) {
-        unlink(tmp);
-        close(lockfd);
-        return (false);
-    }
-    dir_fsync("/var/tmp");
     close(lockfd);
-    *out_id = (int)nxt;
-    return (true);
+    fprintf(stderr, "sim: run ids "
+            "exhausted (max %d)\n",
+            RUN_ID_MAX);
+    return (false);
 }
+
+// sim_run_probe reports a free run id
+// without holding it: true when some id
+// try-locks, else false. Diagnostic
+// only; the winner releases at once, so
+// a concurrent acquire may still lose
+// the race. Never prints.
+bool sim_run_probe(void) {
+    char path[64];
+    int lockfd;
+    int id;
+    int m;
+
+    lockfd = open(RUN_LOCK_PATH,
+                  O_RDWR | O_CREAT, 0600);
+    if (lockfd < 0)
+        return (false);
+    cloexec_fd(lockfd);
+    if (flock(lockfd, LOCK_EX) != 0) {
+        close(lockfd);
+        return (false);
+    }
+    for (id = RUN_ID_MIN;
+         id <= RUN_ID_MAX; id++) {
+        int fd;
+
+        m = snprintf(path, sizeof(path),
+                     RUN_ID_LOCK_FMT, id);
+        if (m < 0 ||
+            m >= (int)sizeof(path)) {
+            close(lockfd);
+            return (false);
+        }
+        fd = open(path,
+                  O_RDWR | O_CREAT, 0600);
+        if (fd < 0)
+            continue;
+        cloexec_fd(fd);
+        if (flock(fd, LOCK_EX |
+                      LOCK_NB) == 0) {
+            close(fd);
+            close(lockfd);
+            return (true);
+        }
+        close(fd);
+    }
+    close(lockfd);
+    return (false);
+}
+
 
 // netns_add_one creates netns <prefix><i>.
 // Deletes first for idempotent retry.

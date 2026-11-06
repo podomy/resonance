@@ -53,8 +53,11 @@ sustain, hold_s, and timeout_s (suite/exec.c:3241-3413). One
 condition per phase in v1; chain phases for AND (suite/exec.h:6-13).
 until waits for the condition, then waits out the full hold_s.
 hold_s needs until and must not exceed timeout_s. sustain
-holds the whole timeout_s: any violation fails at once. One
-submit per file in v1. Unknown needs means skip.
+holds the whole timeout_s: any violation fails at once. Names
+open flights, not single flight: a bare submit while any workload
+is open fails, a second submit needs a fresh as: name
+(docs/yaml Second-submit rule). Unknown needs verbs fail lint;
+runtime still skips unknown needs it cannot know.
 
 Teardown order
 

@@ -148,14 +148,16 @@ example). Use UDP for `make
 test` and small experiments; use TUN when a real binary must talk.
 
 **exit code.** How a child or helper reports done. Zero means ok,
-nonzero means fail, 127 means the child could not start. `weld_pub`
+1 means the suite found failure, 2 means the command line was wrong
+(skips never fail the run), 127 means the child could not start.
+`weld_pub`
 needs exit 0 plus the sent confirmation; `run_teardown` children
 exit after TERM then KILL; suite files map helper results to pass,
 fail, or skip.
 
 **ProgView.** One progress row (`cmd/progress.h`). It records which
 file, which phase, and how far. It holds the base name, the last
-phase text, a live flag, plus a 0-based phase index and total for
+phase text, a live flag, plus a 1-based phase index and total for
 known files. Zero total means unknown. `prog_want` gates drawing on
 tty without tap or json; `prog_color` gates color on TERM plus
 NO_COLOR.
