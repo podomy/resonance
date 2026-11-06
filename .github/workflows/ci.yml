@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  CC: clang
+  CC: clang-20
 
 jobs:
   verify:
@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Clang
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang-20
 
       - name: Build
         run: make
@@ -34,11 +34,12 @@ jobs:
       # $(CC) over C sources, so no setup-go
       # step. Go is needed only for img-build
       # and concord targets, avoided here.
-      # CC is clang from apt: stock gcc
-      # predates -std=c23.
+      # CC is clang-20 from apt: stock gcc
+      # predates -std=c23, and stock clang
+      # predates C23 constexpr.
 
       - name: Install Clang
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang-20
 
       - name: C23 standard gate
         run: make standard
@@ -64,7 +65,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Clang
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang-20
 
       - name: Fuzz the parser
         run: make fuzzer
@@ -77,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Clang
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang-20
 
       - name: Build binary
         run: |
